@@ -1,0 +1,1643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>OCEANUS — Mission Control</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<style>
+:root{
+  --primary:#00ff9c;--secondary:#00c2ff;--warning:#ffb020;--danger:#ff4d4f;
+  --accent:#b388ff;--chaos:#ff6b6b;--bg:#06120f;--card:rgba(11,28,22,0.75);
+  --glass:rgba(255,255,255,0.06);--border:rgba(255,255,255,0.11);
+  --font-main:'Inter',sans-serif;--font-display:'Orbitron',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;height:100%;overflow:hidden;
+  background:radial-gradient(circle at 20% 30%,#0B2A2F 0%,#020617 70%);
+  color:#eef2ff;font-family:var(--font-main);}
+
+/* ── AURORA BLOBS ── */
+.aurora-1,.aurora-2,.aurora-3{position:fixed;border-radius:50%;pointer-events:none;z-index:0;}
+.aurora-1{width:700px;height:700px;background:radial-gradient(circle,rgba(0,255,156,0.06) 0%,transparent 70%);top:-250px;left:-150px;animation:aurora1 18s ease-in-out infinite;}
+.aurora-2{width:600px;height:600px;background:radial-gradient(circle,rgba(179,136,255,0.06) 0%,transparent 70%);bottom:-150px;right:-150px;animation:aurora2 22s ease-in-out infinite;}
+.aurora-3{width:500px;height:500px;background:radial-gradient(circle,rgba(0,194,255,0.04) 0%,transparent 70%);top:40%;left:40%;animation:aurora3 28s ease-in-out infinite;}
+@keyframes aurora1{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(200px,120px) scale(1.2)}66%{transform:translate(-80px,180px) scale(0.9)}}
+@keyframes aurora2{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(-160px,-100px) scale(1.1)}66%{transform:translate(80px,-180px) scale(1.3)}}
+@keyframes aurora3{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.6)}}
+
+/* ── LOADING SCREEN ── */
+#loading-screen{
+  position:fixed;inset:0;background:var(--bg);z-index:9999;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  transition:opacity 0.8s ease;
+}
+#loading-screen.fade-out{opacity:0;pointer-events:none;}
+.loading-title{
+  font-family:var(--font-display);font-size:72px;font-weight:900;
+  color:var(--primary);letter-spacing:16px;
+  text-shadow:0 0 40px var(--primary),0 0 80px rgba(0,255,156,0.4);
+  animation:pulse-glow 2s ease-in-out infinite;
+}
+.loading-sub{
+  font-family:var(--font-display);font-size:14px;letter-spacing:6px;
+  color:var(--secondary);margin-top:12px;opacity:0.8;
+}
+.loading-bar-wrap{width:320px;height:3px;background:rgba(255,255,255,0.1);border-radius:2px;margin-top:40px;overflow:hidden;}
+.loading-bar{height:100%;width:0%;background:linear-gradient(90deg,var(--primary),var(--secondary));border-radius:2px;transition:width 0.1s linear;}
+.loading-status{font-size:11px;color:rgba(255,255,255,0.4);margin-top:12px;letter-spacing:2px;}
+
+/* ── LAYOUT ── */
+#app{display:flex;flex-direction:column;height:100vh;overflow:hidden;}
+
+/* ── NAV ── */
+#nav{
+  height:52px;min-height:52px;
+  background:rgba(6,18,15,0.92);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 16px;gap:12px;
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);z-index:100;
+  position:relative;
+}
+.nav-logo{
+  font-family:var(--font-display);font-size:18px;font-weight:900;
+  color:var(--primary);letter-spacing:4px;
+  text-shadow:0 0 20px var(--primary);white-space:nowrap;
+}
+.nav-logo span{color:var(--secondary);}
+.step-counter{
+  font-family:var(--font-display);font-size:11px;color:rgba(255,255,255,0.5);
+  background:var(--glass);border:1px solid var(--border);
+  padding:4px 10px;border-radius:4px;white-space:nowrap;
+}
+.step-counter b{color:var(--primary);}
+.nav-spacer{flex:1;}
+.nav-tabs{display:flex;gap:4px;}
+.nav-tab{
+  font-family:var(--font-display);font-size:10px;letter-spacing:1px;
+  padding:5px 12px;border-radius:4px;border:1px solid var(--border);
+  background:transparent;color:rgba(255,255,255,0.5);cursor:pointer;
+  transition:all 0.2s;
+}
+.nav-tab:hover{border-color:var(--secondary);color:var(--secondary);}
+.nav-tab.active{background:rgba(0,194,255,0.15);border-color:var(--secondary);color:var(--secondary);}
+.nav-btns{display:flex;gap:6px;align-items:center;}
+.btn{
+  font-family:var(--font-display);font-size:10px;letter-spacing:1px;
+  padding:6px 14px;border-radius:4px;border:none;cursor:pointer;
+  transition:all 0.15s;font-weight:700;
+}
+.btn-demo{background:linear-gradient(135deg,var(--accent),#7c4dff);color:#fff;}
+.btn-demo:hover{box-shadow:0 0 16px rgba(179,136,255,0.6);transform:translateY(-1px);}
+.btn-start{background:linear-gradient(135deg,var(--primary),#00c97a);color:#000;}
+.btn-start:hover{box-shadow:0 0 16px rgba(0,255,156,0.5);transform:translateY(-1px);}
+.btn-stop{background:rgba(255,77,79,0.2);color:var(--danger);border:1px solid var(--danger);}
+.btn-stop:hover{background:rgba(255,77,79,0.35);}
+.btn-reset{background:var(--glass);color:rgba(255,255,255,0.6);border:1px solid var(--border);}
+.btn-reset:hover{border-color:var(--warning);color:var(--warning);}
+.conn-dot{
+  width:8px;height:8px;border-radius:50%;background:var(--danger);
+  box-shadow:0 0 8px var(--danger);transition:all 0.3s;
+}
+.conn-dot.connected{background:var(--primary);box-shadow:0 0 8px var(--primary);}
+.conn-label{font-size:10px;color:rgba(255,255,255,0.4);}
+
+/* ── TREATY BANNER ── */
+#treaty-banner{
+  height:28px;min-height:28px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-display);font-size:10px;letter-spacing:3px;
+  background:linear-gradient(90deg,rgba(179,136,255,0.15),rgba(0,194,255,0.1),rgba(179,136,255,0.15));
+  border-bottom:1px solid rgba(179,136,255,0.2);
+  position:relative;overflow:hidden;
+}
+#treaty-banner::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent,rgba(179,136,255,0.1),transparent);
+  animation:banner-sweep 3s linear infinite;
+}
+#treaty-text{color:var(--accent);z-index:1;}
+#spawn-rate{margin-left:16px;font-size:9px;color:rgba(255,255,255,0.5);z-index:1;}
+
+/* ── KPI ROW ── */
+#kpi-row{
+  height:88px;min-height:88px;
+  display:flex;gap:8px;padding:8px 12px;
+  background:rgba(2,12,24,0.6);border-bottom:1px solid var(--border);
+}
+.kpi-hero{
+  flex:2.5;background:linear-gradient(135deg,rgba(0,255,156,0.12),rgba(0,194,255,0.07));
+  border:1px solid rgba(0,255,156,0.3);
+  border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:16px;
+  position:relative;overflow:hidden;
+  box-shadow:0 0 28px rgba(0,255,156,0.15),0 8px 32px rgba(0,0,0,0.4);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+}
+.kpi-hero::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse at 30% 50%,rgba(0,255,156,0.08),transparent 70%);
+}
+.kpi-hero-val{
+  font-family:var(--font-display);font-size:36px;font-weight:900;
+  color:var(--primary);text-shadow:0 0 20px rgba(0,255,156,0.5);
+  line-height:1;
+}
+.kpi-hero-label{font-size:11px;color:rgba(255,255,255,0.5);letter-spacing:1px;margin-top:4px;}
+.kpi-hero-sub{font-size:10px;color:rgba(0,255,156,0.6);margin-top:2px;}
+.kpi-trend{
+  font-family:var(--font-display);font-size:13px;font-weight:700;
+  padding:3px 8px;border-radius:3px;
+}
+.kpi-trend.up{color:var(--primary);background:rgba(0,255,156,0.1);}
+.kpi-trend.down{color:var(--danger);background:rgba(255,77,79,0.1);}
+.kpi-card{
+  flex:1;background:rgba(11,28,22,0.6);border:1px solid var(--border);
+  border-radius:10px;padding:8px 12px;display:flex;flex-direction:column;justify-content:center;
+  transition:border-color 0.25s,transform 0.2s,box-shadow 0.2s;
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+}
+.kpi-card:hover{border-color:rgba(0,194,255,0.35);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,0.3);}
+.kpi-val{font-family:var(--font-display);font-size:22px;font-weight:700;line-height:1;}
+.kpi-lbl{font-size:9px;color:rgba(255,255,255,0.4);letter-spacing:1px;margin-top:3px;text-transform:uppercase;}
+.kpi-sub{font-size:9px;margin-top:2px;}
+.c-primary{color:var(--primary);}
+.c-secondary{color:var(--secondary);}
+.c-warning{color:var(--warning);}
+.c-danger{color:var(--danger);}
+.c-accent{color:var(--accent);}
+
+/* ── MAIN AREA ── */
+#main-area{flex:1;display:flex;overflow:hidden;position:relative;min-height:0;}
+
+/* ── 3D CANVAS ── */
+#canvas-wrap{
+  flex:0 0 62%;position:relative;
+  background:linear-gradient(135deg,#010a14,#020c18);
+  border-right:1px solid var(--border);
+  overflow:hidden;
+}
+#three-canvas{
+  position:absolute!important;
+  top:0!important;left:0!important;
+  width:100%!important;height:100%!important;
+  display:block!important;
+}
+#chaos-flash{
+  position:absolute;inset:0;background:rgba(255,77,79,0);
+  pointer-events:none;transition:background 0.1s;z-index:10;
+}
+#chaos-flash.active{background:rgba(255,77,79,0.22);}
+/* Global transition system */
+*{transition-timing-function:cubic-bezier(0.4,0,0.2,1);}
+.asv-card,.kpi-card,.kpi-hero{transition:all 0.25s cubic-bezier(0.4,0,0.2,1);}
+.btn{transition:all 0.15s cubic-bezier(0.4,0,0.2,1);}
+.battery-bar{transition:width 0.5s cubic-bezier(0.4,0,0.2,1);}
+.treaty-progress-bar{transition:width 0.8s cubic-bezier(0.4,0,0.2,1);}
+#coord-bar{transition:width 0.8s cubic-bezier(0.4,0,0.2,1);}
+.canvas-legend{
+  position:absolute;bottom:12px;font-size:10px;
+  background:rgba(2,12,24,0.85);border:1px solid var(--border);
+  border-radius:6px;padding:8px 10px;backdrop-filter:blur(8px);
+}
+#legend-agents{left:12px;}
+#legend-density{right:12px;}
+.legend-row{display:flex;align-items:center;gap:6px;margin-bottom:4px;}
+.legend-row:last-child{margin-bottom:0;}
+.legend-dot{width:10px;height:10px;border-radius:50%;}
+.legend-bar{width:60px;height:8px;border-radius:2px;}
+.wind-indicator{
+  position:absolute;top:12px;right:12px;
+  background:rgba(2,12,24,0.85);border:1px solid var(--border);
+  border-radius:6px;padding:8px 10px;font-size:10px;
+  display:flex;align-items:center;gap:8px;
+}
+#wind-arrow{font-size:18px;transition:transform 0.5s;}
+.episode-badge{
+  position:absolute;top:12px;left:12px;
+  background:rgba(2,12,24,0.85);border:1px solid var(--border);
+  border-radius:6px;padding:6px 10px;font-family:var(--font-display);
+  font-size:10px;color:rgba(255,255,255,0.5);
+}
+.episode-badge b{color:var(--secondary);}
+
+/* ── RIGHT PANEL ── */
+#right-panel{
+  flex:1;display:flex;flex-direction:column;overflow:hidden;
+  background:rgba(6,18,15,0.5);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  min-width:0;
+}
+
+/* ── AGENT INTELLIGENCE PANEL ── */
+#agent-panel{
+  flex:1;overflow-y:auto;padding:10px;
+  display:flex;flex-direction:column;gap:8px;
+}
+#agent-panel::-webkit-scrollbar{width:4px;}
+#agent-panel::-webkit-scrollbar-track{background:transparent;}
+#agent-panel::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:2px;}
+
+.panel-section-title{
+  font-family:var(--font-display);font-size:9px;letter-spacing:2px;
+  color:rgba(255,255,255,0.35);text-transform:uppercase;
+  padding:4px 0;border-bottom:1px solid var(--border);margin-bottom:4px;
+}
+
+/* ASV Cards */
+.asv-card{
+  background:rgba(11,28,22,0.6);border:1px solid var(--border);border-radius:10px;
+  padding:10px 12px;transition:border-color 0.25s cubic-bezier(0.4,0,0.2,1),box-shadow 0.25s;
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+}
+.asv-card.on-net{border-color:rgba(0,255,156,0.5);background:rgba(0,255,156,0.06);box-shadow:0 0 16px rgba(0,255,156,0.12);}
+.asv-card.low-battery{border-color:rgba(255,77,79,0.4);}
+.asv-header{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.asv-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.asv-name{font-family:var(--font-display);font-size:12px;font-weight:700;flex:1;}
+.asv-badge{
+  font-size:8px;padding:2px 6px;border-radius:3px;font-weight:600;letter-spacing:0.5px;
+}
+.badge-cleaning{background:rgba(0,255,156,0.2);color:var(--primary);border:1px solid rgba(0,255,156,0.3);}
+.badge-scanning{background:rgba(0,194,255,0.15);color:var(--secondary);border:1px solid rgba(0,194,255,0.2);}
+.badge-low{background:rgba(255,77,79,0.15);color:var(--danger);border:1px solid rgba(255,77,79,0.2);}
+.asv-status-icon{font-size:14px;}
+
+.battery-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.battery-bar-wrap{flex:1;height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;}
+.battery-bar{height:100%;border-radius:3px;transition:width 0.5s ease;}
+.battery-pct{font-family:var(--font-display);font-size:10px;color:rgba(255,255,255,0.5);min-width:32px;text-align:right;}
+
+.asv-action{font-size:11px;color:rgba(255,255,255,0.75);margin-bottom:3px;}
+.asv-reasoning{font-size:10px;color:rgba(255,255,255,0.4);font-style:italic;line-height:1.4;margin-bottom:6px;}
+.asv-meta{display:flex;gap:10px;font-size:9px;color:rgba(255,255,255,0.35);}
+.asv-meta span b{color:rgba(255,255,255,0.55);}
+.coord-score{
+  display:inline-block;padding:1px 5px;border-radius:2px;
+  background:rgba(0,194,255,0.1);color:var(--secondary);font-weight:600;
+}
+
+/* Policy Panel */
+#policy-panel{
+  background:rgba(179,136,255,0.06);border:1px solid rgba(179,136,255,0.2);
+  border-left:3px solid var(--accent);
+  border-radius:10px;padding:10px 12px;
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+}
+.treaty-card{
+  background:rgba(179,136,255,0.08);border:1px solid rgba(179,136,255,0.2);
+  border-radius:6px;padding:8px 10px;margin-bottom:6px;font-size:10px;
+}
+.treaty-card-header{display:flex;align-items:center;gap:6px;margin-bottom:4px;}
+.treaty-card-icon{font-size:14px;}
+.treaty-card-title{font-weight:600;color:var(--accent);}
+.treaty-card-time{font-size:9px;color:rgba(255,255,255,0.3);margin-left:auto;}
+.treaty-card-body{color:rgba(255,255,255,0.55);line-height:1.4;}
+.treaty-progress-wrap{margin:8px 0 4px;}
+.treaty-progress-label{display:flex;justify-content:space-between;font-size:9px;color:rgba(255,255,255,0.4);margin-bottom:4px;}
+.treaty-progress-bar-wrap{height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;}
+.treaty-progress-bar{height:100%;background:linear-gradient(90deg,var(--accent),var(--secondary));border-radius:3px;transition:width 0.8s ease;}
+.treaty-impact{font-size:10px;color:rgba(255,255,255,0.5);margin-top:6px;}
+.treaty-impact b{color:var(--accent);}
+.treaty-timeline{font-size:9px;color:rgba(255,255,255,0.3);margin-top:4px;line-height:1.6;}
+
+/* Event Feed */
+#event-feed{
+  max-height:160px;overflow-y:auto;display:flex;flex-direction:column;gap:3px;
+}
+#event-feed::-webkit-scrollbar{width:3px;}
+#event-feed::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);}
+.event-item{
+  font-size:10px;padding:4px 8px;border-radius:4px;
+  border-left:2px solid transparent;line-height:1.4;
+  animation:slide-in 0.2s ease;
+}
+.event-item.clean{border-color:var(--primary);background:rgba(0,255,156,0.05);color:rgba(255,255,255,0.7);}
+.event-item.treaty{border-color:var(--accent);background:rgba(179,136,255,0.07);color:rgba(255,255,255,0.7);}
+.event-item.broadcast{border-color:var(--secondary);background:rgba(0,194,255,0.05);color:rgba(255,255,255,0.6);}
+.event-item.chaos{border-color:var(--chaos);background:rgba(255,107,107,0.07);color:rgba(255,255,255,0.7);}
+.event-item.step{border-color:rgba(255,255,255,0.1);color:rgba(255,255,255,0.35);}
+.event-item.done{border-color:var(--warning);background:rgba(255,176,32,0.08);color:rgba(255,255,255,0.8);font-weight:600;}
+
+/* ── REPLAY PANEL ── */
+#replay-panel{display:none;flex-direction:column;height:100%;padding:10px;gap:8px;}
+.replay-load-row{display:flex;gap:8px;}
+.btn-load-trained{
+  flex:1;padding:8px;border-radius:6px;border:1px solid var(--primary);
+  background:rgba(0,255,156,0.1);color:var(--primary);cursor:pointer;
+  font-family:var(--font-display);font-size:10px;letter-spacing:1px;
+  transition:all 0.2s;
+}
+.btn-load-trained:hover{background:rgba(0,255,156,0.2);box-shadow:0 0 12px rgba(0,255,156,0.3);}
+.btn-load-baseline{
+  flex:1;padding:8px;border-radius:6px;border:1px solid var(--danger);
+  background:rgba(255,77,79,0.1);color:var(--danger);cursor:pointer;
+  font-family:var(--font-display);font-size:10px;letter-spacing:1px;
+  transition:all 0.2s;
+}
+.btn-load-baseline:hover{background:rgba(255,77,79,0.2);}
+.replay-transport{
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px;
+}
+.transport-btn{
+  width:36px;height:36px;border-radius:50%;border:1px solid var(--border);
+  background:var(--glass);color:rgba(255,255,255,0.7);cursor:pointer;
+  font-size:14px;display:flex;align-items:center;justify-content:center;
+  transition:all 0.15s;
+}
+.transport-btn:hover{border-color:var(--secondary);color:var(--secondary);box-shadow:0 0 10px rgba(0,194,255,0.3);}
+.transport-btn.play-btn{
+  width:44px;height:44px;background:rgba(0,194,255,0.15);
+  border-color:var(--secondary);color:var(--secondary);font-size:18px;
+}
+.speed-btns{display:flex;gap:4px;}
+.speed-btn{
+  padding:3px 8px;border-radius:3px;border:1px solid var(--border);
+  background:transparent;color:rgba(255,255,255,0.4);cursor:pointer;
+  font-family:var(--font-display);font-size:9px;transition:all 0.15s;
+}
+.speed-btn.active{border-color:var(--secondary);color:var(--secondary);background:rgba(0,194,255,0.1);}
+.timeline-wrap{padding:0 4px;}
+.timeline-label{display:flex;justify-content:space-between;font-size:9px;color:rgba(255,255,255,0.3);margin-bottom:4px;}
+.timeline-slider-wrap{position:relative;height:20px;display:flex;align-items:center;}
+#timeline-slider{
+  width:100%;-webkit-appearance:none;appearance:none;
+  height:4px;background:rgba(255,255,255,0.1);border-radius:2px;outline:none;cursor:pointer;
+}
+#timeline-slider::-webkit-slider-thumb{
+  -webkit-appearance:none;width:14px;height:14px;border-radius:50%;
+  background:var(--secondary);box-shadow:0 0 8px var(--secondary);cursor:pointer;
+}
+#timeline-markers{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;}
+.replay-stats{
+  background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 12px;
+  font-size:10px;color:rgba(255,255,255,0.5);
+}
+.replay-stats b{color:rgba(255,255,255,0.8);}
+.narrative-panel{
+  flex:1;background:var(--card);border:1px solid var(--border);border-radius:8px;
+  padding:12px;overflow-y:auto;
+}
+.narrative-title{font-family:var(--font-display);font-size:10px;letter-spacing:2px;color:var(--secondary);margin-bottom:8px;}
+#narrative-text{font-size:11px;color:rgba(255,255,255,0.65);line-height:1.7;}
+
+/* ── COMPARE MODE ── */
+#compare-panel{display:none;flex-direction:column;width:100%;padding:12px;gap:10px;overflow-y:auto;}
+.compare-banner{
+  background:linear-gradient(135deg,rgba(0,255,156,0.1),rgba(0,194,255,0.08));
+  border:1px solid rgba(0,255,156,0.25);border-radius:10px;
+  padding:14px 20px;text-align:center;
+}
+.compare-banner-title{
+  font-family:var(--font-display);font-size:16px;font-weight:900;
+  color:var(--primary);letter-spacing:3px;
+  text-shadow:0 0 20px rgba(0,255,156,0.4);
+}
+.compare-banner-sub{font-size:11px;color:rgba(255,255,255,0.5);margin-top:4px;}
+.compare-stats-row{display:flex;gap:8px;}
+.compare-stat{
+  flex:1;background:var(--card);border:1px solid var(--border);border-radius:8px;
+  padding:12px;text-align:center;
+}
+.compare-stat-val{font-family:var(--font-display);font-size:28px;font-weight:900;color:var(--primary);}
+.compare-stat-lbl{font-size:9px;color:rgba(255,255,255,0.4);letter-spacing:1px;margin-top:4px;}
+.compare-charts-row{display:flex;gap:8px;height:180px;}
+.compare-chart-wrap{
+  flex:1;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px;
+}
+.compare-chart-title{font-family:var(--font-display);font-size:9px;letter-spacing:1px;color:rgba(255,255,255,0.4);margin-bottom:6px;}
+.compare-grids-row{display:flex;gap:8px;}
+.compare-grid-wrap{
+  flex:1;border-radius:8px;padding:10px;text-align:center;
+}
+.compare-grid-wrap.baseline{border:2px solid rgba(255,77,79,0.5);background:rgba(255,77,79,0.04);box-shadow:0 0 20px rgba(255,77,79,0.1);}
+.compare-grid-wrap.trained{border:2px solid rgba(0,255,156,0.5);background:rgba(0,255,156,0.04);box-shadow:0 0 20px rgba(0,255,156,0.1);}
+.compare-grid-label{font-family:var(--font-display);font-size:11px;font-weight:700;margin-bottom:8px;}
+.compare-grid-label.bad{color:var(--danger);}
+.compare-grid-label.good{color:var(--primary);}
+.mini-grid-canvas{border-radius:4px;}
+.btn-load-compare{
+  padding:10px 20px;border-radius:6px;border:1px solid var(--secondary);
+  background:rgba(0,194,255,0.1);color:var(--secondary);cursor:pointer;
+  font-family:var(--font-display);font-size:11px;letter-spacing:1px;
+  transition:all 0.2s;align-self:center;
+}
+.btn-load-compare:hover{background:rgba(0,194,255,0.2);box-shadow:0 0 16px rgba(0,194,255,0.3);}
+
+/* ── BOTTOM PANEL ── */
+#bottom-panel{
+  height:160px;min-height:160px;
+  display:flex;gap:8px;padding:8px 12px;
+  background:rgba(6,18,15,0.85);border-top:1px solid var(--border);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+}
+.chart-card{
+  flex:1;background:rgba(0,0,0,0.35);border:1px solid rgba(0,255,156,0.1);border-radius:10px;
+  padding:8px 12px;display:flex;flex-direction:column;
+  backdrop-filter:blur(10px);
+}
+.chart-title{font-family:var(--font-display);font-size:9px;letter-spacing:1px;color:rgba(255,255,255,0.4);margin-bottom:6px;}
+.chart-canvas-wrap{flex:1;position:relative;}
+
+/* ── ANIMATIONS ── */
+@keyframes pulse-glow{
+  0%,100%{text-shadow:0 0 40px var(--primary),0 0 80px rgba(0,255,156,0.4);}
+  50%{text-shadow:0 0 60px var(--primary),0 0 120px rgba(0,255,156,0.6);}
+}
+@keyframes banner-sweep{
+  0%{transform:translateX(-100%);}
+  100%{transform:translateX(100%);}
+}
+@keyframes slide-in{
+  from{opacity:0;transform:translateX(8px);}
+  to{opacity:1;transform:translateX(0);}
+}
+@keyframes coord-flash{
+  0%{opacity:0;}50%{opacity:1;}100%{opacity:0;}
+}
+</style>
+</head>
+<body>
+<!-- Aurora blobs -->
+<div class="aurora-1"></div>
+<div class="aurora-2"></div>
+<div class="aurora-3"></div>
+
+<!-- Loading Screen -->
+<div id="loading-screen">
+  <div class="loading-title">OCEANUS</div>
+  <div class="loading-sub">MULTI-AGENT OCEAN RECOVERY</div>
+  <div class="loading-bar-wrap"><div class="loading-bar" id="loading-bar"></div></div>
+  <div class="loading-status" id="loading-status">INITIALIZING...</div>
+</div>
+
+<div id="app">
+  <!-- NAV -->
+  <nav id="nav">
+    <div class="nav-logo">OCEANUS<span> MC</span></div>
+    <div class="step-counter">EP <b id="nav-ep">1</b> &nbsp;·&nbsp; STEP <b id="nav-step">0</b> / <b id="nav-max">120</b></div>
+    <div class="nav-spacer"></div>
+    <div class="nav-tabs">
+      <button class="nav-tab active" data-tab="live">LIVE</button>
+      <button class="nav-tab" data-tab="replay">REPLAY</button>
+      <button class="nav-tab" data-tab="compare">COMPARE</button>
+    </div>
+    <div class="nav-btns">
+      <button class="btn btn-demo" id="btn-demo">🚀 DEMO</button>
+      <button class="btn btn-start" id="btn-start">▶ START</button>
+      <button class="btn btn-stop" id="btn-stop">■ STOP</button>
+      <button class="btn btn-reset" id="btn-reset">↺</button>
+      <div class="conn-dot" id="conn-dot"></div>
+      <div class="conn-label" id="conn-label">Connecting...</div>
+    </div>
+  </nav>
+
+  <!-- TREATY BANNER -->
+  <div id="treaty-banner">
+    <span id="treaty-text">NO TAGGING MANDATE</span>
+    <span id="spawn-rate">SPAWN RATE: HIGH</span>
+  </div>
+
+  <!-- KPI ROW -->
+  <div id="kpi-row">
+    <div class="kpi-hero">
+      <div>
+        <div class="kpi-hero-val" id="kpi-bio">100%</div>
+        <div class="kpi-hero-label">🌱 BIODIVERSITY INDEX</div>
+        <div class="kpi-hero-sub">TARGET ≥ 75% FOR RECOVERY</div>
+      </div>
+      <div class="kpi-trend up" id="kpi-bio-trend">—</div>
+    </div>
+    <div class="kpi-card"><div class="kpi-val c-danger" id="kpi-nets">0</div><div class="kpi-lbl">🕸 Active Nets</div><div class="kpi-sub c-danger" id="kpi-nets-sub">Ghost Gear</div></div>
+    <div class="kpi-card"><div class="kpi-val c-warning" id="kpi-cleaned">0</div><div class="kpi-lbl">✅ Cleaned</div><div class="kpi-sub" id="kpi-cleaned-sub">Recovered</div></div>
+    <div class="kpi-card"><div class="kpi-val c-accent" id="kpi-treaty" style="font-size:13px">—</div><div class="kpi-lbl">📜 Treaty</div><div class="kpi-sub c-accent" id="kpi-treaty-sub">Policy Layer</div></div>
+    <div class="kpi-card"><div class="kpi-val c-secondary" id="kpi-reward">0</div><div class="kpi-lbl">💰 Reward</div><div class="kpi-sub" id="kpi-reward-sub">RL Score</div></div>
+    <div class="kpi-card"><div class="kpi-val" id="kpi-chaos" style="color:var(--chaos)">0</div><div class="kpi-lbl">⚡ Chaos</div><div class="kpi-sub" id="kpi-chaos-sub">Adversary</div></div>
+  </div>
+
+  <!-- STORY PANEL -->
+  <div id="story-panel" style="padding:6px 12px;background:linear-gradient(135deg,rgba(0,194,255,0.07),rgba(0,255,156,0.04));border-bottom:1px solid rgba(0,194,255,0.15);display:flex;align-items:center;gap:10px;min-height:36px;">
+    <span style="font-size:14px">🧠</span>
+    <div id="story-text" style="font-size:11px;color:rgba(255,255,255,0.65);line-height:1.4;flex:1;">Waiting for simulation...</div>
+  </div>
+
+  <!-- MAIN AREA -->
+  <div id="main-area">
+
+    <!-- 3D CANVAS -->
+    <div id="canvas-wrap">
+      <canvas id="three-canvas"></canvas>
+      <div id="chaos-flash"></div>
+      <!-- Agent legend -->
+      <div class="canvas-legend" id="legend-agents">
+        <div style="font-size:9px;color:rgba(255,255,255,0.35);letter-spacing:1px;margin-bottom:5px">AGENTS</div>
+        <div class="legend-row"><div class="legend-dot" style="background:#00c2ff;box-shadow:0 0 4px #00c2ff"></div><span style="font-size:9px;color:rgba(255,255,255,0.5)">ASV-1</span></div>
+        <div class="legend-row"><div class="legend-dot" style="background:#00ff9c;box-shadow:0 0 4px #00ff9c"></div><span style="font-size:9px;color:rgba(255,255,255,0.5)">ASV-2</span></div>
+        <div class="legend-row"><div class="legend-dot" style="background:#ffb020;box-shadow:0 0 4px #ffb020"></div><span style="font-size:9px;color:rgba(255,255,255,0.5)">ASV-3</span></div>
+        <div class="legend-row"><div class="legend-dot" style="background:#b388ff;box-shadow:0 0 4px #b388ff"></div><span style="font-size:9px;color:rgba(255,255,255,0.5)">ASV-4</span></div>
+      </div>
+      <!-- Density legend -->
+      <div class="canvas-legend" id="legend-density">
+        <div style="font-size:9px;color:rgba(255,255,255,0.35);letter-spacing:1px;margin-bottom:5px">NET DENSITY</div>
+        <div class="legend-row"><div class="legend-bar" style="background:linear-gradient(90deg,#ff4d4f,#ff2200)"></div><span style="font-size:9px;color:rgba(255,255,255,0.5)">High</span></div>
+        <div class="legend-row"><div class="legend-bar" style="background:linear-gradient(90deg,#ffb020,#ff6b35)"></div><span style="font-size:9px;color:rgba(255,255,255,0.5)">Medium</span></div>
+        <div class="legend-row"><div class="legend-bar" style="background:linear-gradient(90deg,#00c2ff,#0066aa)"></div><span style="font-size:9px;color:rgba(255,255,255,0.5)">Low</span></div>
+        <div class="legend-row"><div class="legend-bar" style="background:#061020;border:1px solid rgba(255,255,255,0.1)"></div><span style="font-size:9px;color:rgba(255,255,255,0.5)">Clear</span></div>
+      </div>
+      <!-- Wind -->
+      <div class="wind-indicator">
+        <span style="font-size:9px;color:rgba(255,255,255,0.35)">WIND</span>
+        <span id="wind-arrow">→</span>
+      </div>
+      <!-- Episode -->
+      <div class="episode-badge">EP <b id="ep-badge">1</b> · STEP <b id="step-badge">0</b></div>
+      <!-- Camera hint -->
+      <div style="position:absolute;bottom:12px;left:50%;transform:translateX(-50%);font-size:9px;color:rgba(255,255,255,0.18);letter-spacing:1px;white-space:nowrap;pointer-events:none">DRAG TO ROTATE · SCROLL TO ZOOM</div>
+    </div>
+
+    <!-- RIGHT PANEL — LIVE -->
+    <div id="right-panel">
+      <div id="live-right" style="display:flex;flex-direction:column;height:100%;overflow:hidden;">
+
+        <!-- Agent Intelligence -->
+        <div id="agent-panel">
+          <div class="panel-section-title">🤖 AGENT INTELLIGENCE</div>
+
+          <!-- ASV-1 -->
+          <div class="asv-card" id="card-ASV-1">
+            <div class="asv-header">
+              <div class="asv-dot" style="background:#00c2ff;box-shadow:0 0 6px #00c2ff"></div>
+              <div class="asv-name" style="color:#00c2ff">ASV-1</div>
+              <div class="asv-status-icon" id="icon-ASV-1">🔍</div>
+              <div class="asv-badge badge-scanning" id="badge-ASV-1">SCANNING</div>
+            </div>
+            <div class="battery-row">
+              <div class="battery-bar-wrap"><div class="battery-bar" id="bat-ASV-1" style="width:100%;background:linear-gradient(90deg,#00ff9c,#00c2ff)"></div></div>
+              <div class="battery-pct" id="batp-ASV-1">100%</div>
+            </div>
+            <div class="asv-action" id="action-ASV-1">→ Initializing...</div>
+            <div class="asv-reasoning" id="reason-ASV-1">Awaiting first observation...</div>
+            <div class="asv-meta">
+              <span>Sector: <b id="sec-ASV-1">—</b></span>
+              <span>Pos: <b id="pos-ASV-1">(—,—)</b></span>
+              <span>Cleaned: <b id="cln-ASV-1">0</b></span>
+            </div>
+          </div>
+
+          <!-- ASV-2 -->
+          <div class="asv-card" id="card-ASV-2">
+            <div class="asv-header">
+              <div class="asv-dot" style="background:#00ff9c;box-shadow:0 0 6px #00ff9c"></div>
+              <div class="asv-name" style="color:#00ff9c">ASV-2</div>
+              <div class="asv-status-icon" id="icon-ASV-2">🔍</div>
+              <div class="asv-badge badge-scanning" id="badge-ASV-2">SCANNING</div>
+            </div>
+            <div class="battery-row">
+              <div class="battery-bar-wrap"><div class="battery-bar" id="bat-ASV-2" style="width:100%;background:linear-gradient(90deg,#00ff9c,#00c2ff)"></div></div>
+              <div class="battery-pct" id="batp-ASV-2">100%</div>
+            </div>
+            <div class="asv-action" id="action-ASV-2">→ Initializing...</div>
+            <div class="asv-reasoning" id="reason-ASV-2">Awaiting first observation...</div>
+            <div class="asv-meta">
+              <span>Sector: <b id="sec-ASV-2">—</b></span>
+              <span>Pos: <b id="pos-ASV-2">(—,—)</b></span>
+              <span>Cleaned: <b id="cln-ASV-2">0</b></span>
+            </div>
+          </div>
+
+          <!-- ASV-3 -->
+          <div class="asv-card" id="card-ASV-3">
+            <div class="asv-header">
+              <div class="asv-dot" style="background:#ffb020;box-shadow:0 0 6px #ffb020"></div>
+              <div class="asv-name" style="color:#ffb020">ASV-3</div>
+              <div class="asv-status-icon" id="icon-ASV-3">🔍</div>
+              <div class="asv-badge badge-scanning" id="badge-ASV-3">SCANNING</div>
+            </div>
+            <div class="battery-row">
+              <div class="battery-bar-wrap"><div class="battery-bar" id="bat-ASV-3" style="width:100%;background:linear-gradient(90deg,#00ff9c,#00c2ff)"></div></div>
+              <div class="battery-pct" id="batp-ASV-3">100%</div>
+            </div>
+            <div class="asv-action" id="action-ASV-3">→ Initializing...</div>
+            <div class="asv-reasoning" id="reason-ASV-3">Awaiting first observation...</div>
+            <div class="asv-meta">
+              <span>Sector: <b id="sec-ASV-3">—</b></span>
+              <span>Pos: <b id="pos-ASV-3">(—,—)</b></span>
+              <span>Cleaned: <b id="cln-ASV-3">0</b></span>
+            </div>
+          </div>
+
+          <!-- ASV-4 -->
+          <div class="asv-card" id="card-ASV-4">
+            <div class="asv-header">
+              <div class="asv-dot" style="background:#b388ff;box-shadow:0 0 6px #b388ff"></div>
+              <div class="asv-name" style="color:#b388ff">ASV-4</div>
+              <div class="asv-status-icon" id="icon-ASV-4">🔍</div>
+              <div class="asv-badge badge-scanning" id="badge-ASV-4">SCANNING</div>
+            </div>
+            <div class="battery-row">
+              <div class="battery-bar-wrap"><div class="battery-bar" id="bat-ASV-4" style="width:100%;background:linear-gradient(90deg,#00ff9c,#00c2ff)"></div></div>
+              <div class="battery-pct" id="batp-ASV-4">100%</div>
+            </div>
+            <div class="asv-action" id="action-ASV-4">→ Initializing...</div>
+            <div class="asv-reasoning" id="reason-ASV-4">Awaiting first observation...</div>
+            <div class="asv-meta">
+              <span>Sector: <b id="sec-ASV-4">—</b></span>
+              <span>Pos: <b id="pos-ASV-4">(—,—)</b></span>
+              <span>Cleaned: <b id="cln-ASV-4">0</b></span>
+            </div>
+          </div>
+
+          <!-- Coordination Score -->
+          <div style="background:rgba(0,194,255,0.06);border:1px solid rgba(0,194,255,0.15);border-radius:6px;padding:8px 10px;">
+            <div style="font-size:9px;color:rgba(255,255,255,0.35);letter-spacing:1px;margin-bottom:4px">🧠 COORDINATION SCORE</div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div style="flex:1;height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;">
+                <div id="coord-bar" style="height:100%;width:0%;background:linear-gradient(90deg,var(--secondary),var(--primary));border-radius:3px;transition:width 0.8s ease;"></div>
+              </div>
+              <div id="coord-score" style="font-family:var(--font-display);font-size:13px;font-weight:700;color:var(--secondary);min-width:36px;text-align:right">0%</div>
+            </div>
+            <div id="coord-label" style="font-size:9px;color:rgba(255,255,255,0.3);margin-top:3px">Agents not yet coordinating</div>
+          </div>
+
+          <!-- Policy Panel -->
+          <div id="policy-panel">
+            <div class="panel-section-title" style="color:var(--accent)">📜 POLICY NEGOTIATION</div>
+            <div id="policy-content">
+              <div class="treaty-card">
+                <div class="treaty-card-header">
+                  <span class="treaty-card-icon">⚖️</span>
+                  <span class="treaty-card-title">Status</span>
+                </div>
+                <div class="treaty-card-body" id="policy-status-text">No mandate active. Policy agents monitoring.</div>
+              </div>
+              <div class="treaty-progress-wrap">
+                <div class="treaty-progress-label">
+                  <span>Treaty Progress</span>
+                  <span id="policy-pct">0%</span>
+                </div>
+                <div class="treaty-progress-bar-wrap">
+                  <div class="treaty-progress-bar" id="policy-bar" style="width:0%"></div>
+                </div>
+              </div>
+              <div class="treaty-impact">Impact: <b id="policy-impact">No change yet</b></div>
+              <div class="treaty-timeline" id="policy-timeline">Waiting for negotiation...</div>
+            </div>
+          </div>
+
+          <!-- Event Feed -->
+          <div>
+            <div class="panel-section-title">📡 LIVE EVENTS</div>
+            <div id="event-feed"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- REPLAY RIGHT -->
+      <div id="replay-right" style="display:none;flex-direction:column;height:100%;padding:10px;gap:8px;overflow-y:auto;">
+        <div class="replay-load-row">
+          <button class="btn-load-trained" id="btn-load-trained">✅ Load Trained</button>
+          <button class="btn-load-baseline" id="btn-load-baseline">❌ Load Baseline</button>
+        </div>
+        <div class="replay-transport">
+          <button class="transport-btn" id="btn-replay-reset" title="Reset">⏮</button>
+          <button class="transport-btn" id="btn-replay-back" title="Back 5">⏪</button>
+          <button class="transport-btn play-btn" id="btn-replay-play">▶</button>
+          <button class="transport-btn" id="btn-replay-fwd" title="Forward 5">⏩</button>
+          <div class="speed-btns">
+            <button class="speed-btn" data-speed="0.5">0.5×</button>
+            <button class="speed-btn active" data-speed="1">1×</button>
+            <button class="speed-btn" data-speed="2">2×</button>
+            <button class="speed-btn" data-speed="4">4×</button>
+          </div>
+        </div>
+        <div class="timeline-wrap">
+          <div class="timeline-label">
+            <span>Step 0</span>
+            <span id="replay-frame-lbl">Frame 0 / 0</span>
+            <span id="replay-end-lbl">Step 120</span>
+          </div>
+          <div class="timeline-slider-wrap">
+            <div id="timeline-markers"></div>
+            <input type="range" id="timeline-slider" min="0" max="100" value="0">
+          </div>
+        </div>
+        <div class="replay-stats" id="replay-stats">Load a replay to begin.</div>
+        <div class="narrative-panel">
+          <div class="narrative-title">🧠 WHAT'S HAPPENING</div>
+          <div id="narrative-text">Load a replay to see agent decisions...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMPARE PANEL (full width overlay) -->
+  <div id="compare-panel">
+    <div class="compare-banner">
+      <div class="compare-banner-title">🏆 TRAINING IMPACT ANALYSIS</div>
+      <div class="compare-banner-sub">Same environment · Same seed · Different agent behaviour</div>
+    </div>
+    <div class="compare-stats-row">
+      <div class="compare-stat"><div class="compare-stat-val" id="cmp-reward">—</div><div class="compare-stat-lbl">REWARD GAIN</div></div>
+      <div class="compare-stat"><div class="compare-stat-val" id="cmp-bio">—</div><div class="compare-stat-lbl">BIODIVERSITY ↑</div></div>
+      <div class="compare-stat"><div class="compare-stat-val" id="cmp-nets">—</div><div class="compare-stat-lbl">MORE NETS CLEANED</div></div>
+      <div class="compare-stat"><div class="compare-stat-val" id="cmp-treaty">—</div><div class="compare-stat-lbl">TREATY SUCCESS</div></div>
+    </div>
+    <div class="compare-charts-row">
+      <div class="compare-chart-wrap">
+        <div class="compare-chart-title">CUMULATIVE REWARD — Trained (green) vs Baseline (red dashed)</div>
+        <canvas id="cmp-reward-chart" style="width:100%;height:140px"></canvas>
+      </div>
+      <div class="compare-chart-wrap">
+        <div class="compare-chart-title">BIODIVERSITY % — Trained (green) vs Baseline (red dashed)</div>
+        <canvas id="cmp-bio-chart" style="width:100%;height:140px"></canvas>
+      </div>
+    </div>
+    <div class="compare-grids-row">
+      <div class="compare-grid-wrap baseline">
+        <div class="compare-grid-label bad">❌ BASELINE — Ecosystem Collapse</div>
+        <canvas id="cmp-grid-baseline" class="mini-grid-canvas" width="180" height="180"></canvas>
+        <div id="cmp-base-stats" style="font-size:10px;color:var(--danger);margin-top:6px">No coordination · No policy success</div>
+      </div>
+      <div class="compare-grid-wrap trained">
+        <div class="compare-grid-label good">✅ TRAINED — Stable Recovery</div>
+        <canvas id="cmp-grid-trained" class="mini-grid-canvas" width="180" height="180"></canvas>
+        <div id="cmp-train-stats" style="font-size:10px;color:var(--primary);margin-top:6px">Coordinated sweep · Treaty signed</div>
+      </div>
+    </div>
+    <button class="btn-load-compare" id="btn-load-compare">⬇ Load Comparison Data</button>
+  </div>
+
+  <!-- BOTTOM PANEL -->
+  <div id="bottom-panel">
+    <div class="chart-card">
+      <div class="chart-title">STEP REWARD <span style="color:var(--primary);margin-left:6px">■</span> Live</div>
+      <div class="chart-canvas-wrap"><canvas id="reward-chart"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">BIODIVERSITY % <span style="color:var(--primary);margin-left:6px">■</span> Bio &nbsp;<span style="color:var(--danger)">■</span> Nets</div>
+      <div class="chart-canvas-wrap"><canvas id="bio-chart"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// OCEANUS MISSION CONTROL — Complete JS
+// ═══════════════════════════════════════════════════════════════
+const host = location.hostname || 'localhost';
+const WS_PORT = location.port || 8000;
+const WS_URL = `ws://${host}:${WS_PORT}/ws`;
+const ASV_COLORS = { 'ASV-1': 0x00c2ff, 'ASV-2': 0x00ff9c, 'ASV-3': 0xffb020, 'ASV-4': 0xb388ff };
+const ASV_CSS   = { 'ASV-1': '#00c2ff', 'ASV-2': '#00ff9c', 'ASV-3': '#ffb020', 'ASV-4': '#b388ff' };
+
+const S = {
+  ws: null, wsReady: false, reconnectDelay: 1000,
+  tab: 'live', running: false, done: false,
+  chaosCount: 0, prevBio: null, prevNets: null, prevCleaned: null, prevReward: null,
+  rewardHist: [], bioHist: [], netHist: [],
+  replayFrames: [], replayIdx: 0, replayPlaying: false, replaySpeed: 1, replayTimer: null,
+  trainedData: null, baselineData: null,
+  cmpRewardChart: null, cmpBioChart: null,
+  lastActions: {}, broadcastLines: [],
+  asvTrails: { 'ASV-1': [], 'ASV-2': [], 'ASV-3': [], 'ASV-4': [] },
+};
+
+// ── THREE.JS ──────────────────────────────────────────────────
+const T = { renderer:null, scene:null, camera:null, controls:null, cells:[], asvMeshes:{}, asvTargets:{}, particles:[], clock:null };
+
+function initThree() {
+  const wrap = document.getElementById('canvas-wrap');
+  if (!wrap) { console.error('canvas-wrap not found'); return; }
+
+  // Remove any existing canvas
+  const oldCanvas = document.getElementById('three-canvas');
+  if (oldCanvas) oldCanvas.remove();
+  if (T.renderer) { T.renderer.dispose(); T.renderer = null; }
+
+  // Create renderer
+  T.renderer = new THREE.WebGLRenderer({ antialias: true });
+  T.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  T.renderer.setClearColor(0x010a14, 1);
+  T.renderer.shadowMap.enabled = true;
+
+  // Style and append canvas
+  const el = T.renderer.domElement;
+  el.style.position = 'absolute';
+  el.style.top = '0';
+  el.style.left = '0';
+  el.style.width = '100%';
+  el.style.height = '100%';
+  el.style.display = 'block';
+  wrap.insertBefore(el, wrap.firstChild);
+
+  // Camera with safe defaults
+  T.camera = new THREE.PerspectiveCamera(48, 16/9, 0.1, 200);
+  T.camera.position.set(14, 18, 22);
+  T.camera.lookAt(9.5, 0, 9.5);
+
+  // Controls
+  T.controls = new THREE.OrbitControls(T.camera, el);
+  T.controls.target.set(9.5, 0, 9.5);
+  T.controls.enableDamping = true;
+  T.controls.dampingFactor = 0.05;
+  T.controls.autoRotate = true;
+  T.controls.autoRotateSpeed = 0.3;
+  T.controls.minDistance = 8;
+  T.controls.maxDistance = 50;
+  T.controls.maxPolarAngle = Math.PI / 2.1;
+  let idleTimer;
+  T.controls.addEventListener('start', () => { T.controls.autoRotate = false; clearTimeout(idleTimer); });
+  T.controls.addEventListener('end', () => { idleTimer = setTimeout(() => T.controls.autoRotate = true, 6000); });
+
+  // Scene
+  T.scene = new THREE.Scene();
+  T.scene.fog = new THREE.FogExp2(0x010a14, 0.016);
+  T.clock = new THREE.Clock();
+
+  // Lights
+  T.scene.add(new THREE.AmbientLight(0x112244, 0.9));
+  const dir = new THREE.DirectionalLight(0x4488ff, 0.7);
+  dir.position.set(10, 20, 10);
+  T.scene.add(dir);
+  const rim = new THREE.DirectionalLight(0x00ff9c, 0.2);
+  rim.position.set(-10, 5, -10);
+  T.scene.add(rim);
+
+  // Ocean plane
+  const planeGeo = new THREE.PlaneGeometry(22, 22, 40, 40);
+  T.oceanMesh = new THREE.Mesh(planeGeo, new THREE.MeshPhongMaterial({
+    color: 0x001a33, transparent: true, opacity: 0.7, shininess: 80
+  }));
+  T.oceanMesh.rotation.x = -Math.PI / 2;
+  T.oceanMesh.position.set(9.5, -0.3, 9.5);
+  T.scene.add(T.oceanMesh);
+  T.oceanPos = planeGeo.attributes.position.array.slice();
+
+  // Grid cells 20x20
+  T.cells = [];
+  for (let r = 0; r < 20; r++) {
+    T.cells[r] = [];
+    for (let c = 0; c < 20; c++) {
+      const m = new THREE.Mesh(
+        new THREE.BoxGeometry(0.85, 0.1, 0.85),
+        new THREE.MeshPhongMaterial({ color: 0x001a4d, transparent: true, opacity: 0.3 })
+      );
+      m.position.set(c, 0.05, r);
+      T.scene.add(m);
+      T.cells[r][c] = m;
+    }
+  }
+
+  // Sector labels A1-D4
+  [['A',0],['B',5],['C',10],['D',15]].forEach(([l, sr]) => {
+    [0,5,10,15].forEach((sc, ci) => {
+      const cv = document.createElement('canvas');
+      cv.width = 128; cv.height = 64;
+      const ctx = cv.getContext('2d');
+      ctx.fillStyle = 'rgba(0,194,255,0.12)'; ctx.fillRect(0,0,128,64);
+      ctx.strokeStyle = 'rgba(0,194,255,0.3)'; ctx.strokeRect(1,1,126,62);
+      ctx.fillStyle = 'rgba(0,194,255,0.6)';
+      ctx.font = 'bold 26px Orbitron,monospace';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(l + (ci+1), 64, 32);
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: new THREE.CanvasTexture(cv), transparent: true, opacity: 0.5
+      }));
+      sp.position.set(sc+2, 0.5, sr+2);
+      sp.scale.set(2.5, 1.25, 1);
+      T.scene.add(sp);
+    });
+  });
+
+  // ASV meshes
+  T.asvMeshes = {};
+  T.asvTargets = {};
+  Object.entries(ASV_COLORS).forEach(([id, col]) => {
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.25, 0.3, 0.5, 8),
+      new THREE.MeshPhongMaterial({ color: col, emissive: col, emissiveIntensity: 0.4 })
+    );
+    g.add(body);
+    const cone = new THREE.Mesh(
+      new THREE.ConeGeometry(0.25, 0.5, 8),
+      new THREE.MeshPhongMaterial({ color: col, emissive: col, emissiveIntensity: 0.6 })
+    );
+    cone.position.y = 0.5;
+    g.add(cone);
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(0.4, 0.04, 8, 24),
+      new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.5 })
+    );
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = 0.1;
+    g.add(ring);
+    const light = new THREE.PointLight(col, 1.5, 4);
+    light.position.y = 0.5;
+    g.add(light);
+    g.position.set(2, 0.6, 2);
+    T.scene.add(g);
+    T.asvMeshes[id] = g;
+    T.asvTargets[id] = { x: 2, z: 2 };
+  });
+
+  T.particles = [];
+
+  // Resize and start render loop
+  window.addEventListener('resize', onResize);
+  onResize();
+  renderLoop();
+}
+
+function onResize() {
+  const wrap = document.getElementById('canvas-wrap');
+  if (!wrap || !T.renderer) return;
+  const rect = wrap.getBoundingClientRect();
+  const W = rect.width, H = rect.height;
+  if (W > 10 && H > 10) {
+    T.renderer.setSize(W, H, false);
+    T.camera.aspect = W / H;
+    T.camera.updateProjectionMatrix();
+  }
+}
+
+function renderLoop() {
+  requestAnimationFrame(renderLoop);
+  const t = T.clock.getElapsedTime();
+  // Wave ocean
+  if (T.oceanMesh) {
+    const pos = T.oceanMesh.geometry.attributes.position;
+    for (let i=0; i<pos.count; i++) {
+      const x=T.oceanPos[i*3], z=T.oceanPos[i*3+2];
+      pos.setY(i, Math.sin(x*0.8+t*1.2)*0.1 + Math.sin(z*0.6+t*0.9)*0.07);
+    }
+    pos.needsUpdate=true;
+  }
+  // ASV lerp + pulse
+  Object.keys(T.asvMeshes).forEach((id,i) => {
+    const m=T.asvMeshes[id], tg=T.asvTargets[id];
+    m.position.x += (tg.x - m.position.x)*0.1;
+    m.position.z += (tg.z - m.position.z)*0.1;
+    m.position.y = 0.6 + Math.sin(t*2+i)*0.08;
+    m.rotation.y += 0.008;
+    m.children[3].intensity = 1.2 + Math.sin(t*3+i)*0.4;
+  });
+  // Particles
+  T.particles = T.particles.filter(p => {
+    p.life -= 0.035; if (p.life<=0) { T.scene.remove(p.mesh); return false; }
+    p.mesh.position.x+=p.vx; p.mesh.position.y+=p.vy; p.mesh.position.z+=p.vz;
+    p.vy-=0.004; p.mesh.material.opacity=p.life; return true;
+  });
+  T.controls.update();
+  T.renderer.render(T.scene, T.camera);
+}
+
+function updateGrid(grid) {
+  if (!grid) return;
+  for (let r=0; r<20; r++) for (let c=0; c<20; c++) {
+    const d = grid[r]?.[c]||0, m=T.cells[r][c];
+    m.scale.y = Math.max(0.05, d*2.5);
+    m.position.y = m.scale.y*0.05;
+    m.material.color.setHex(densityColor(d));
+    m.material.emissive.setHex(densityColor(d));
+    m.material.emissiveIntensity = d*0.3;
+    m.material.opacity = d>0 ? 0.85+d*0.15 : 0.25;
+  }
+}
+
+function densityColor(d) {
+  if (d<=0) return 0x001a4d;
+  if (d<0.3) return lerpHex(0x001a4d, 0x0066aa, d/0.3);
+  if (d<0.6) return lerpHex(0x0066aa, 0x00c2ff, (d-0.3)/0.3);
+  if (d<0.8) return lerpHex(0x00c2ff, 0xffb020, (d-0.6)/0.2);
+  return lerpHex(0xffb020, 0xff4d4f, (d-0.8)/0.2);
+}
+function lerpHex(a,b,t) {
+  const ar=(a>>16)&0xff,ag=(a>>8)&0xff,ab=a&0xff;
+  const br=(b>>16)&0xff,bg=(b>>8)&0xff,bb=b&0xff;
+  return ((Math.round(ar+(br-ar)*t)<<16)|(Math.round(ag+(bg-ag)*t)<<8)|Math.round(ab+(bb-ab)*t));
+}
+
+function updateASVPositions(asvs) {
+  if (!asvs) return;
+  Object.entries(asvs).forEach(([id,a]) => { if (T.asvTargets[id]) { T.asvTargets[id].x=a.col; T.asvTargets[id].z=a.row; } });
+}
+
+function spawnCleanParticles(row, col) {
+  for (let i=0; i<24; i++) {
+    const geo=new THREE.SphereGeometry(0.06,4,4);
+    const mat=new THREE.MeshBasicMaterial({ color:0x00ff9c, transparent:true, opacity:1 });
+    const mesh=new THREE.Mesh(geo,mat);
+    mesh.position.set(col,0.5,row); T.scene.add(mesh);
+    const a=Math.random()*Math.PI*2, sp=0.04+Math.random()*0.06;
+    T.particles.push({ mesh, life:1, vx:Math.cos(a)*sp, vy:0.05+Math.random()*0.08, vz:Math.sin(a)*sp });
+  }
+}
+
+function drawBroadcastLine(fromId, toIds) {
+  const from = T.asvMeshes[fromId];
+  if (!from) return;
+  toIds.forEach(toId => {
+    const to = T.asvMeshes[toId];
+    if (!to) return;
+    const pts = [from.position.clone().setY(1), to.position.clone().setY(1)];
+    const geo = new THREE.BufferGeometry().setFromPoints(pts);
+    const mat = new THREE.LineBasicMaterial({ color: ASV_COLORS[fromId]||0x00c2ff, transparent:true, opacity:0.8 });
+    const line = new THREE.Line(geo, mat);
+    T.scene.add(line);
+    let opacity = 0.8;
+    const fade = setInterval(() => {
+      opacity -= 0.05;
+      mat.opacity = Math.max(0, opacity);
+      if (opacity <= 0) { clearInterval(fade); T.scene.remove(line); }
+    }, 30);
+  });
+}
+</script>
+
+<script>
+// ── CHARTS ────────────────────────────────────────────────────
+let rewardChart, bioChart;
+function initCharts() {
+  const tip = { backgroundColor:'rgba(2,12,24,0.95)', borderColor:'rgba(255,255,255,0.1)', borderWidth:1, titleColor:'rgba(255,255,255,0.7)', bodyColor:'rgba(255,255,255,0.55)', titleFont:{family:'Orbitron',size:9}, bodyFont:{family:'Inter',size:10}, padding:8 };
+  const rCtx = document.getElementById('reward-chart').getContext('2d');
+  const rGrad = rCtx.createLinearGradient(0,0,0,100); rGrad.addColorStop(0,'rgba(0,255,156,0.25)'); rGrad.addColorStop(1,'rgba(0,255,156,0)');
+  rewardChart = new Chart(rCtx, { type:'line', data:{ labels:[], datasets:[{ data:[], borderColor:'#00ff9c', backgroundColor:rGrad, fill:true, borderWidth:2.5, pointRadius:0, tension:0.4 }] }, options:{ responsive:true, maintainAspectRatio:false, animation:false, interaction:{mode:'index',intersect:false}, plugins:{ legend:{display:false}, tooltip:{...tip, callbacks:{title:i=>`Step ${i[0].label}`, label:i=>` Reward: ${i.raw.toFixed(1)}`}} }, scales:{ x:{display:false}, y:{grid:{color:'rgba(255,255,255,0.05)'}, ticks:{color:'rgba(0,255,156,0.6)',font:{size:9}}, border:{color:'transparent'}} }, elements:{point:{radius:0,hoverRadius:3}} } });
+  const bCtx = document.getElementById('bio-chart').getContext('2d');
+  const bGrad = bCtx.createLinearGradient(0,0,0,100); bGrad.addColorStop(0,'rgba(0,255,156,0.2)'); bGrad.addColorStop(1,'rgba(0,255,156,0)');
+  bioChart = new Chart(bCtx, { type:'line', data:{ labels:[], datasets:[{ data:[], borderColor:'#00ff9c', backgroundColor:bGrad, fill:true, borderWidth:2.5, pointRadius:0, tension:0.4, yAxisID:'y' }, { data:[], borderColor:'#ff4d4f', backgroundColor:'transparent', fill:false, borderWidth:1.5, borderDash:[4,3], pointRadius:0, tension:0.4, yAxisID:'y2' }] }, options:{ responsive:true, maintainAspectRatio:false, animation:false, interaction:{mode:'index',intersect:false}, plugins:{ legend:{display:false}, tooltip:{...tip, callbacks:{title:i=>`Step ${i[0].label}`, label:i=>i.datasetIndex===0?` Bio: ${i.raw.toFixed(1)}%`:` Nets: ${i.raw}`}} }, scales:{ x:{display:false}, y:{grid:{color:'rgba(255,255,255,0.05)'}, ticks:{color:'rgba(0,255,156,0.6)',font:{size:9}}, min:0, max:100, border:{color:'transparent'}}, y2:{position:'right', grid:{display:false}, ticks:{color:'rgba(255,77,79,0.6)',font:{size:9}}, border:{color:'transparent'}} }, elements:{point:{radius:0,hoverRadius:3}} } });
+}
+
+function initCompareCharts() {
+  const opts = (yLabel) => ({ responsive:false, animation:{duration:600}, interaction:{mode:'index',intersect:false}, plugins:{ legend:{display:false}, tooltip:{ backgroundColor:'rgba(2,12,24,0.95)', borderColor:'rgba(255,255,255,0.1)', borderWidth:1, titleColor:'rgba(255,255,255,0.7)', bodyColor:'rgba(255,255,255,0.55)', titleFont:{family:'Orbitron',size:9}, bodyFont:{family:'Inter',size:10}, padding:8, callbacks:{title:i=>`Step ${i[0].label}`, label:i=>` ${i.dataset.label}: ${i.raw.toFixed(1)}`} } }, scales:{ x:{ display:true, title:{display:true,text:'Steps',color:'rgba(255,255,255,0.3)',font:{size:9}}, grid:{color:'rgba(255,255,255,0.04)'}, ticks:{color:'rgba(255,255,255,0.3)',font:{size:9},maxTicksLimit:8} }, y:{ display:true, title:{display:true,text:yLabel,color:'rgba(255,255,255,0.3)',font:{size:9}}, grid:{color:'rgba(255,255,255,0.06)'}, ticks:{color:'rgba(255,255,255,0.4)',font:{size:9}} } }, elements:{point:{radius:0,hoverRadius:4},line:{tension:0.4}} });
+  const rCtx = document.getElementById('cmp-reward-chart').getContext('2d');
+  S.cmpRewardChart = new Chart(rCtx, { type:'line', data:{ labels:[], datasets:[{ label:'✅ Trained', data:[], borderColor:'#00ff9c', backgroundColor:'rgba(0,255,156,0.1)', fill:true, borderWidth:3 }, { label:'❌ Baseline', data:[], borderColor:'#ff4d4f', backgroundColor:'rgba(255,77,79,0.06)', fill:true, borderWidth:2, borderDash:[6,3] }] }, options:opts('Reward') });
+  const bCtx = document.getElementById('cmp-bio-chart').getContext('2d');
+  S.cmpBioChart = new Chart(bCtx, { type:'line', data:{ labels:[], datasets:[{ label:'✅ Trained', data:[], borderColor:'#00ff9c', backgroundColor:'rgba(0,255,156,0.1)', fill:true, borderWidth:3 }, { label:'❌ Baseline', data:[], borderColor:'#ff4d4f', backgroundColor:'rgba(255,77,79,0.06)', fill:true, borderWidth:2, borderDash:[6,3] }] }, options:{...opts('Biodiversity %'), scales:{...opts('Biodiversity %').scales, y:{...opts('Biodiversity %').scales.y, min:0, max:105}}} });
+}
+
+// ── DOM UPDATES ───────────────────────────────────────────────
+function updateKPIs(f) {
+  const bio=f.biodiversity||0, nets=f.active_nets||0, cleaned=f.total_cleaned||0, reward=f.total_reward||0;
+  document.getElementById('kpi-bio').textContent = bio.toFixed(1)+'%';
+  document.getElementById('kpi-nets').textContent = nets;
+  document.getElementById('kpi-cleaned').textContent = cleaned;
+  document.getElementById('kpi-reward').textContent = reward.toFixed(0);
+  document.getElementById('nav-step').textContent = f.step||0;
+  document.getElementById('nav-max').textContent = f.max_steps||120;
+  document.getElementById('nav-ep').textContent = f.episode||1;
+  document.getElementById('step-badge').textContent = f.step||0;
+  document.getElementById('ep-badge').textContent = f.episode||1;
+  const ts = f.treaty_status||'—';
+  document.getElementById('kpi-treaty').textContent = ts.length>14 ? ts.slice(0,13)+'…' : ts;
+  // Trend
+  if (S.prevBio!==null) {
+    const d=bio-S.prevBio, el=document.getElementById('kpi-bio-trend');
+    el.textContent = (d>=0?'↑ +':'↓ ')+Math.abs(d).toFixed(1)+'%';
+    el.className = 'kpi-trend '+(d>=0?'up':'down');
+  }
+  S.prevBio=bio; S.prevNets=nets; S.prevCleaned=cleaned; S.prevReward=reward;
+  // Treaty banner
+  const banner=document.getElementById('treaty-banner');
+  const tl=ts.toLowerCase();
+  document.getElementById('treaty-text').textContent = ts.toUpperCase();
+  document.getElementById('spawn-rate').textContent = 'SPAWN: '+(f.net_spawn_rate||'—');
+  banner.style.background = tl.includes('active')||tl.includes('mandate')
+    ? 'linear-gradient(90deg,rgba(0,255,156,0.15),rgba(0,194,255,0.1),rgba(0,255,156,0.15))'
+    : tl.includes('proposed')
+    ? 'linear-gradient(90deg,rgba(255,176,32,0.15),rgba(255,107,53,0.1),rgba(255,176,32,0.15))'
+    : 'linear-gradient(90deg,rgba(179,136,255,0.15),rgba(0,194,255,0.1),rgba(179,136,255,0.15))';
+  // Wind
+  const wv=f.wind_vector||[0,1];
+  const arrows={'0,1':'→','0,-1':'←','1,0':'↓','-1,0':'↑','1,1':'↘','-1,-1':'↖','1,-1':'↙','-1,1':'↗'};
+  document.getElementById('wind-arrow').textContent = arrows[`${wv[0]},${wv[1]}`]||'→';
+  // Policy panel
+  updatePolicyPanel(f);
+  // Story
+  updateStory(f);
+  // Coordination score
+  updateCoordination(f);
+}
+
+function updateASVCards(asvs, lastActions) {
+  if (!asvs) return;
+  const ids = ['ASV-1','ASV-2','ASV-3','ASV-4'];
+  ids.forEach(id => {
+    const a=asvs[id]; if (!a) return;
+    const bat=a.battery||0;
+    const batEl=document.getElementById('bat-'+id);
+    const batpEl=document.getElementById('batp-'+id);
+    const posEl=document.getElementById('pos-'+id);
+    const secEl=document.getElementById('sec-'+id);
+    const clnEl=document.getElementById('cln-'+id);
+    const cardEl=document.getElementById('card-'+id);
+    const badgeEl=document.getElementById('badge-'+id);
+    const iconEl=document.getElementById('icon-'+id);
+    const actionEl=document.getElementById('action-'+id);
+    const reasonEl=document.getElementById('reason-'+id);
+    if (batEl) { batEl.style.width=bat+'%'; batEl.style.background=bat<25?'linear-gradient(90deg,#ff4d4f,#ff6b35)':bat<50?'linear-gradient(90deg,#ffb020,#ff6b35)':'linear-gradient(90deg,#00ff9c,#00c2ff)'; }
+    if (batpEl) batpEl.textContent=bat+'%';
+    if (posEl) posEl.textContent=`(${a.row},${a.col})`;
+    if (secEl) secEl.textContent=a.sector||getSector(a.row,a.col);
+    if (clnEl) clnEl.textContent=a.nets_cleaned||0;
+    if (cardEl) {
+      cardEl.classList.toggle('on-net', !!a.on_net);
+      cardEl.classList.toggle('low-battery', bat<25);
+    }
+    // Last action + reasoning
+    const la = lastActions && lastActions[id];
+    if (la && actionEl) {
+      actionEl.textContent = '→ '+la.action;
+      if (reasonEl) reasonEl.textContent = la.reasoning;
+      if (badgeEl) {
+        badgeEl.textContent = la.badge;
+        badgeEl.className = 'asv-badge '+(la.badgeClass||'badge-scanning');
+      }
+      if (iconEl) iconEl.textContent = la.icon;
+    }
+  });
+}
+
+function updatePolicyPanel(f) {
+  const ts = f.treaty_status||'';
+  const tl = ts.toLowerCase();
+  const progress = tl.includes('active')||tl.includes('mandate') ? 100 : tl.includes('proposed') ? 60 : tl.includes('review') ? 40 : 10;
+  const barEl = document.getElementById('policy-bar');
+  const pctEl = document.getElementById('policy-pct');
+  const statusEl = document.getElementById('policy-status-text');
+  const impactEl = document.getElementById('policy-impact');
+  const timelineEl = document.getElementById('policy-timeline');
+  if (barEl) barEl.style.width = progress+'%';
+  if (pctEl) pctEl.textContent = progress+'%';
+  if (statusEl) {
+    if (tl.includes('active')||tl.includes('mandate')) statusEl.textContent = '✅ Tagging Mandate ACTIVE — fishers complying';
+    else if (tl.includes('proposed')) statusEl.textContent = '⚠️ Treaty proposed — Fleet Manager reviewing terms';
+    else if (tl.includes('review')) statusEl.textContent = '🔄 Treaty under review — adversary challenged mandate';
+    else statusEl.textContent = '❌ No mandate — Port Authority must propose treaty';
+  }
+  if (impactEl) {
+    if (tl.includes('active')) impactEl.textContent = 'Spawn rate: HIGH → LOW ✅';
+    else if (tl.includes('proposed')) impactEl.textContent = 'Spawn rate: HIGH → MEDIUM (pending)';
+    else impactEl.textContent = 'No change yet — spawn rate remains HIGH';
+  }
+  if (timelineEl && f.step) {
+    const step = f.step;
+    let tl2 = '';
+    if (step > 0) tl2 += `Step 1 → Stakeholder emails received\n`;
+    if (progress >= 60) tl2 += `Step ~7 → Treaty proposed\n`;
+    if (progress >= 100) tl2 += `Step ~10 → Mandate ACTIVE → spawn ↓`;
+    else tl2 += `Step ? → Awaiting acceptance...`;
+    timelineEl.textContent = tl2;
+  }
+}
+
+function updateStory(f) {
+  const el = document.getElementById('story-text');
+  if (!el) return;
+  const bio=f.biodiversity||0, nets=f.active_nets||0, ts=f.treaty_status||'';
+  const parts = [];
+  if (bio>=75) parts.push(`🌱 Ecosystem recovering (${bio.toFixed(1)}%)`);
+  else if (bio>=50) parts.push(`⚠️ Ecosystem stressed (${bio.toFixed(1)}%) — agents working`);
+  else parts.push(`🚨 Ecosystem critical (${bio.toFixed(1)}%) — urgent action needed`);
+  if (nets>15) parts.push(`🕸 ${nets} ghost nets spreading — ASV fleet responding`);
+  else if (nets>0) parts.push(`🛰️ ${nets} nets remaining — fleet sweeping sectors`);
+  else parts.push(`✅ Ocean clear — all nets recovered`);
+  if (ts.includes('Active')) parts.push(`📜 Treaty ACTIVE → spawn rate reduced to Low`);
+  else if (ts.includes('Proposed')) parts.push(`📜 Treaty proposed → Fleet Manager must accept`);
+  else parts.push(`📩 No mandate → policy agents must negotiate`);
+  el.textContent = parts.join('  ·  ');
+}
+
+function updateCoordination(f) {
+  if (!f.asvs) return;
+  const broadcasts = (f.event_log||[]).filter(e => (e.type==='broadcast')||(typeof e==='string'&&e.startsWith('BROADCAST')));
+  const cleaned = (f.event_log||[]).filter(e => (e.type==='clean')||(typeof e==='string'&&e.startsWith('CLEANED')));
+  const score = Math.min(100, broadcasts.length*15 + cleaned.length*20 + (f.treaty_status||'').includes('Active')?30:0);
+  const bar = document.getElementById('coord-bar');
+  const scoreEl = document.getElementById('coord-score');
+  const labelEl = document.getElementById('coord-label');
+  if (bar) bar.style.width = score+'%';
+  if (scoreEl) scoreEl.textContent = score+'%';
+  if (labelEl) labelEl.textContent = score>60?'High coordination — agents sharing intel':score>30?'Moderate coordination — some broadcasts':score>0?'Low coordination — agents acting independently':'Agents not yet coordinating';
+}
+
+function getSector(row, col) {
+  return String.fromCharCode(65+Math.floor(row/5))+(Math.floor(col/5)+1);
+}
+
+// ── EVENT FEED ────────────────────────────────────────────────
+const seenEvents = new Set();
+function addEvent(type, msg) {
+  if (seenEvents.has(msg)) return;
+  seenEvents.add(msg);
+  if (seenEvents.size>400) seenEvents.delete(seenEvents.values().next().value);
+  const feed = document.getElementById('event-feed');
+  if (!feed) return;
+  const div = document.createElement('div');
+  div.className = 'event-item '+type;
+  div.textContent = msg;
+  feed.appendChild(div);
+  while (feed.children.length>120) feed.removeChild(feed.firstChild);
+  feed.scrollTop = feed.scrollHeight;
+}
+
+function humanEvent(ev) {
+  const s = typeof ev==='string' ? ev : (ev.msg||'');
+  const t = typeof ev==='string' ? (s.startsWith('CLEANED')?'clean':s.startsWith('TREATY')?'treaty':s.startsWith('CHAOS')?'chaos':s.startsWith('BROADCAST')?'broadcast':'step') : (ev.type||'step');
+  if (s.startsWith('CLEANED')) {
+    const m=s.match(/ASV-(\d+).*\((\d+),(\d+)\)/);
+    return { type:'clean', msg: m ? `✅ ASV-${m[1]} removed ghost net — Sector ${getSector(+m[2],+m[3])}` : '✅ '+s.replace('CLEANED: ','') };
+  }
+  if (s.startsWith('TREATY')) {
+    const inner=s.replace('TREATY: ','');
+    if (inner.includes('SIGNED')) return { type:'treaty', msg:'🎉 TREATY SIGNED — spawn rate dropping to Low' };
+    if (inner.includes('proposed')) return { type:'treaty', msg:'📜 Treaty proposed — awaiting Fleet Manager' };
+    return { type:'treaty', msg:'📜 '+inner };
+  }
+  if (s.startsWith('CHAOS')) {
+    const inner=s.replace('CHAOS: ','');
+    if (inner.includes('STORM')) return { type:'chaos', msg:'🌊 Storm surge — nets drifting rapidly' };
+    if (inner.includes('TRAWLER')) return { type:'chaos', msg:'🚢 Rogue trawler dumped 9 ghost nets' };
+    if (inner.includes('CORRUPTION')) return { type:'chaos', msg:'📡 Data corruption — ASV comms degraded' };
+    if (inner.includes('ALGAE')) return { type:'chaos', msg:'🌿 Algae bloom — biodiversity dropping' };
+    if (inner.includes('LEGAL')||inner.includes('SCHEMA')) return { type:'chaos', msg:'⚖️ Treaty challenged — re-negotiation required' };
+    return { type:'chaos', msg:'⚡ '+inner.substring(0,60) };
+  }
+  if (s.startsWith('BROADCAST')) {
+    return { type:'broadcast', msg:'📡 '+s.replace('BROADCAST: ','') };
+  }
+  if (s.match(/^\[\s*\d+\]/)) {
+    const sm=s.match(/\[(\s*\d+)\]/), bm=s.match(/Bio:([\d.]+)%/), rm=s.match(/R:([+-][\d.]+)/), nm=s.match(/Nets:(\d+)/);
+    if (sm&&bm) {
+      const bio=parseFloat(bm[1]), r=rm?parseFloat(rm[1]):0, nets=nm?nm[1]:'?';
+      const icon=bio>=75?'🌱':bio>=50?'⚠️':'🚨';
+      return { type:'step', msg:`${icon} Step ${sm[1].trim()} · ${nets} nets · Bio ${bio}% · R${r>=0?'+':''}${r.toFixed(1)}` };
+    }
+  }
+  return { type:t, msg:s };
+}
+
+// ── AGENT REASONING ───────────────────────────────────────────
+function buildLastActions(frame) {
+  const actions = {};
+  const ids = ['ASV-1','ASV-2','ASV-3','ASV-4'];
+  ids.forEach(id => {
+    const asv = frame.asvs?.[id];
+    if (!asv) return;
+    const onNet = asv.on_net;
+    const sector = asv.sector || getSector(asv.row, asv.col);
+    // Check events for this step
+    const events = frame.event_log||[];
+    const cleaned = events.some(e => { const s=typeof e==='string'?e:(e.msg||''); return s.includes(id)&&s.startsWith('CLEANED'); });
+    const broadcast = events.some(e => { const s=typeof e==='string'?e:(e.msg||''); return s.includes(id)&&s.startsWith('BROADCAST'); });
+    if (cleaned) {
+      actions[id] = { action:'CLEAN NET', icon:'🧹', badge:'CLEANING', badgeClass:'badge-cleaning', reasoning:`Detected ghost net at sector ${sector}. Executing recovery protocol.` };
+    } else if (broadcast) {
+      actions[id] = { action:'BROADCAST', icon:'📡', badge:'COMMS', badgeClass:'badge-scanning', reasoning:`Broadcasting position to fleet. Coordinating sweep pattern.` };
+    } else if (onNet) {
+      actions[id] = { action:'ON NET — CLEANING', icon:'🧹', badge:'CLEANING', badgeClass:'badge-cleaning', reasoning:`Ghost net detected at current position. Initiating recovery.` };
+    } else {
+      const dirs = ['NORTH','SOUTH','EAST','WEST'];
+      const dir = dirs[Math.floor(Math.random()*4)];
+      actions[id] = { action:`MOVE ${dir}`, icon:'🛰️', badge:'SCANNING', badgeClass:'badge-scanning', reasoning:`Sweeping sector ${sector}. No nets in sonar range. Continuing systematic search.` };
+    }
+  });
+  return actions;
+}
+
+// ── WEBSOCKET ─────────────────────────────────────────────────
+function connectWS() {
+  const dot=document.getElementById('conn-dot'), lbl=document.getElementById('conn-label');
+  dot.className='conn-dot'; lbl.textContent='Connecting...';
+  try { S.ws = new WebSocket(WS_URL); } catch(e) { console.error("WS connect error:", e); scheduleReconnect(); return; }
+  S.ws.onopen = () => { S.wsReady=true; S.reconnectDelay=1000; dot.className='conn-dot connected'; lbl.textContent='Connected'; };
+  S.ws.onclose = () => { S.wsReady=false; dot.className='conn-dot'; lbl.textContent='Disconnected'; scheduleReconnect(); };
+  S.ws.onerror = () => { S.wsReady=false; };
+  S.ws.onmessage = (evt) => {
+    try { handleMsg(JSON.parse(evt.data)); } catch(e) { console.error("WS error:", e); alert("WS error: " + e.message); }
+  };
+}
+function scheduleReconnect() { setTimeout(connectWS, S.reconnectDelay); S.reconnectDelay=Math.min(S.reconnectDelay*1.5,5000); }
+function send(obj) { if (S.ws&&S.ws.readyState===WebSocket.OPEN) S.ws.send(JSON.stringify(obj)); }
+
+function handleMsg(msg) {
+  if (msg.type==='state') {
+    if (S.tab==='live') applyState(msg);
+  } else if (msg.type==='replay_data') {
+    handleReplayData(msg);
+  } else if (msg.type==='control') {
+    addEvent('step', 'CONTROL: '+msg.status);
+  } else if (msg.type==='error') {
+    addEvent('chaos', '⚠ '+msg.msg);
+  }
+}
+
+function applyState(frame) {
+  // Detect cleans for particles
+  if (S.prevNets!==null && frame.active_nets<S.prevNets && frame.asvs) {
+    Object.values(frame.asvs).forEach(a => { if (a.on_net) spawnCleanParticles(a.row,a.col); });
+  }
+  // Detect broadcasts for coordination lines
+  (frame.event_log||[]).forEach(ev => {
+    const s=typeof ev==='string'?ev:(ev.msg||'');
+    if (s.startsWith('BROADCAST')) {
+      const match=s.match(/ASV-(\d+)/);
+      if (match) {
+        const fromId='ASV-'+match[1];
+        const others=['ASV-1','ASV-2','ASV-3','ASV-4'].filter(id=>id!==fromId);
+        drawBroadcastLine(fromId, others);
+      }
+    }
+    if ((ev.type==='chaos')||(s.startsWith('CHAOS'))) {
+      S.chaosCount++;
+      const flash=document.getElementById('chaos-flash');
+      if (flash) { flash.classList.add('active'); setTimeout(()=>flash.classList.remove('active'),300); }
+    }
+  });
+  updateGrid(frame.grid);
+  updateASVPositions(frame.asvs);
+  const lastActions = buildLastActions(frame);
+  updateASVCards(frame.asvs, lastActions);
+  updateKPIs(frame);
+  document.getElementById('kpi-chaos').textContent = S.chaosCount;
+  if (frame.reward_history) S.rewardHist=frame.reward_history;
+  if (frame.bio_history) S.bioHist=frame.bio_history;
+  if (frame.net_history) S.netHist=frame.net_history;
+  updateCharts();
+  (frame.event_log||[]).forEach(ev => { const {type,msg}=humanEvent(ev); addEvent(type,msg); });
+  if (frame.done) addEvent('done', `🏁 EPISODE COMPLETE · Bio:${(frame.biodiversity||0).toFixed(1)}% · Cleaned:${frame.total_cleaned||0} · Treaty:${frame.treaty_status||'—'}`);
+}
+
+function updateCharts() {
+  const labels=S.rewardHist.map((_,i)=>i);
+  rewardChart.data.labels=labels; rewardChart.data.datasets[0].data=S.rewardHist; rewardChart.update('none');
+  bioChart.data.labels=S.bioHist.map((_,i)=>i); bioChart.data.datasets[0].data=S.bioHist; bioChart.data.datasets[1].data=S.netHist||[]; bioChart.update('none');
+}
+</script>
+
+<script>
+// ── REPLAY ────────────────────────────────────────────────────
+function handleReplayData(msg) {
+  const data=msg.data;
+  if (!data||!data.frames) { addEvent('chaos','⚠ No replay data'); return; }
+  S.replayFrames=data.frames; S.replayIdx=0; S.replayPlaying=false;
+  clearInterval(S.replayTimer);
+  const lbl=document.getElementById('replay-frame-lbl');
+  const stats=document.getElementById('replay-stats');
+  const endLbl=document.getElementById('replay-end-lbl');
+  const slider=document.getElementById('timeline-slider');
+  if (lbl) lbl.textContent=`Frame 1 / ${data.frames.length}`;
+  if (endLbl) endLbl.textContent=`Step ${data.frames.length}`;
+  if (slider) { slider.max=data.frames.length-1; slider.value=0; }
+  if (stats) stats.innerHTML=`<b>${data.mode==='trained'?'✅ TRAINED':'❌ BASELINE'}</b> · ${data.frames.length} steps · Reward: <b>${(data.total_reward||0).toFixed(0)}</b> · Bio: <b>${(data.biodiversity_final||0).toFixed(1)}%</b> · Cleaned: <b>${data.total_cleaned||0}</b>`;
+  buildMarkers(data.frames);
+  applyReplayFrame(0);
+  document.getElementById('btn-replay-play').textContent='▶';
+}
+
+function buildMarkers(frames) {
+  const container=document.getElementById('timeline-markers');
+  if (!container) return;
+  container.innerHTML='';
+  frames.forEach((f,i) => {
+    (f.events||[]).forEach(ev => {
+      let color='', title='';
+      if (ev.includes('SIGNED')) { color='#b388ff'; title='Treaty Signed'; }
+      else if (ev.startsWith('CLEANED')) { color='#ffb020'; title='Net Cleaned'; }
+      else if (ev.startsWith('CHAOS')&&ev.includes('STORM')) { color='#ff4d4f'; title='Storm'; }
+      if (!color) return;
+      const pct=(i/(frames.length-1))*100;
+      const dot=document.createElement('div');
+      dot.style.cssText=`position:absolute;left:${pct}%;top:50%;transform:translate(-50%,-50%);width:8px;height:8px;border-radius:50%;background:${color};box-shadow:0 0 6px ${color};cursor:pointer;z-index:3;`;
+      dot.title=`Step ${f.step}: ${title}`;
+      dot.addEventListener('click',()=>{ replayPause(); applyReplayFrame(i); });
+      container.appendChild(dot);
+    });
+  });
+}
+
+function applyReplayFrame(idx) {
+  if (!S.replayFrames.length) return;
+  idx=Math.max(0,Math.min(idx,S.replayFrames.length-1));
+  S.replayIdx=idx;
+  const f=S.replayFrames[idx];
+  updateGrid(f.grid);
+  if (f.asvs) updateASVPositions(f.asvs);
+  const kpiF={...f, total_reward:f.cumulative_reward||f.total_reward||0, episode:1, max_steps:S.replayFrames.length};
+  updateKPIs(kpiF);
+  const slider=document.getElementById('timeline-slider');
+  const lbl=document.getElementById('replay-frame-lbl');
+  if (slider) slider.value=idx;
+  if (lbl) lbl.textContent=`Step ${f.step} / ${S.replayFrames.length}`;
+  // Narrative
+  const narr=document.getElementById('narrative-text');
+  if (narr) {
+    const lines=[];
+    lines.push(`📍 Step ${f.step} — ${f.active_nets||0} ghost nets active`);
+    if (f.asvs) {
+      const onNet=Object.entries(f.asvs).filter(([,a])=>f.grid&&f.grid[a.row]&&f.grid[a.row][a.col]>0);
+      if (onNet.length) lines.push(`🧹 ${onNet.map(([id])=>id).join(', ')} cleaning nets`);
+      else lines.push(`🛰️ All ASVs sweeping — no nets in sonar range`);
+    }
+    const ts=f.treaty_status||'';
+    if (ts.includes('Active')) lines.push(`📜 Mandate ACTIVE — spawn rate reduced`);
+    else if (ts.includes('Proposed')) lines.push(`📜 Treaty proposed — awaiting acceptance`);
+    else lines.push(`📜 No mandate — nets spawning every 5 steps`);
+    const bio=f.biodiversity||0;
+    lines.push(bio>=75?`🌱 Biodiversity ${bio.toFixed(1)}% — recovering`:bio<50?`🚨 Biodiversity ${bio.toFixed(1)}% — critical`:`⚠️ Biodiversity ${bio.toFixed(1)}% — stressed`);
+    (f.events||[]).forEach(ev => {
+      if (ev.startsWith('CHAOS')) lines.push(`⚡ ${ev.replace('CHAOS: ','').substring(0,50)}`);
+    });
+    narr.innerHTML=lines.map(l=>`<div style="margin-bottom:4px">${l}</div>`).join('');
+  }
+  // Replay event feed
+  const rfeed=document.getElementById('event-feed');
+  if (rfeed && f.events && f.events.length) {
+    f.events.forEach(ev => { const {type,msg}=humanEvent(ev); addEvent(type,msg); });
+  }
+}
+
+function replayPlay() {
+  if (!S.replayFrames.length) return;
+  S.replayPlaying=true;
+  document.getElementById('btn-replay-play').textContent='⏸';
+  const interval=Math.max(40,180/S.replaySpeed);
+  clearInterval(S.replayTimer);
+  S.replayTimer=setInterval(()=>{
+    if (S.replayIdx>=S.replayFrames.length-1) { replayPause(); return; }
+    applyReplayFrame(S.replayIdx+1);
+  }, interval);
+}
+function replayPause() {
+  S.replayPlaying=false; clearInterval(S.replayTimer);
+  document.getElementById('btn-replay-play').textContent='▶';
+}
+
+// ── COMPARE ───────────────────────────────────────────────────
+function loadCompareData() {
+  const btn=document.getElementById('btn-load-compare');
+  btn.textContent='Loading...'; btn.disabled=true;
+  S.trainedData=null; S.baselineData=null;
+  let count=0;
+  const orig=S.ws.onmessage;
+  S.ws.onmessage=(evt)=>{
+    try {
+      const msg=JSON.parse(evt.data);
+      if (msg.type==='replay_data') {
+        if (msg.data.mode==='trained') S.trainedData=msg.data;
+        else S.baselineData=msg.data;
+        count++;
+        if (count>=2) { S.ws.onmessage=orig; btn.textContent='↻ Reload Data'; btn.disabled=false; renderCompare(); }
+      } else handleMsg(msg);
+    } catch(e){}
+  };
+  send({cmd:'get_replay',mode:'trained'});
+  setTimeout(()=>send({cmd:'get_replay',mode:'baseline'}),400);
+  setTimeout(()=>{ if (count<2) { S.ws.onmessage=orig; btn.textContent='↻ Reload Data'; btn.disabled=false; } },10000);
+}
+
+function renderCompare() {
+  const T2=S.trainedData, B=S.baselineData;
+  if (!T2||!B) return;
+  const tReward=[], bReward=[], tBio=[], bBio=[];
+  const maxLen=Math.max(T2.frames.length,B.frames.length);
+  for (let i=0;i<maxLen;i++) {
+    if (i<T2.frames.length) { tReward.push(T2.frames[i].cumulative_reward||0); tBio.push(T2.frames[i].biodiversity||0); }
+    if (i<B.frames.length) { bReward.push(B.frames[i].cumulative_reward||0); bBio.push(B.frames[i].biodiversity||0); }
+  }
+  const labels=Array.from({length:maxLen},(_,i)=>i);
+  S.cmpRewardChart.data.labels=labels; S.cmpRewardChart.data.datasets[0].data=tReward; S.cmpRewardChart.data.datasets[1].data=bReward; S.cmpRewardChart.update('none');
+  S.cmpBioChart.data.labels=labels; S.cmpBioChart.data.datasets[0].data=tBio; S.cmpBioChart.data.datasets[1].data=bBio; S.cmpBioChart.update('none');
+  const rDelta=((T2.total_reward||0)-(B.total_reward||0)).toFixed(0);
+  const bDelta=((T2.biodiversity_final||0)-(B.biodiversity_final||0)).toFixed(1);
+  const cDelta=(T2.total_cleaned||0)-(B.total_cleaned||0);
+  document.getElementById('cmp-reward').textContent=(rDelta>0?'+':'')+rDelta;
+  document.getElementById('cmp-bio').textContent=(bDelta>0?'+':'')+bDelta+'%';
+  document.getElementById('cmp-nets').textContent=(cDelta>=0?'+':'')+cDelta;
+  document.getElementById('cmp-treaty').textContent=T2.treaty_status?.includes('Active')?'✅ YES':'❌ NO';
+  document.getElementById('cmp-base-stats').textContent=`Reward: ${(B.total_reward||0).toFixed(0)} · Bio: ${(B.biodiversity_final||0).toFixed(1)}% · Cleaned: ${B.total_cleaned||0}`;
+  document.getElementById('cmp-train-stats').textContent=`Reward: ${(T2.total_reward||0).toFixed(0)} · Bio: ${(T2.biodiversity_final||0).toFixed(1)}% · Cleaned: ${T2.total_cleaned||0}`;
+  drawMiniGrid('cmp-grid-baseline', B.frames[B.frames.length-1]);
+  drawMiniGrid('cmp-grid-trained', T2.frames[T2.frames.length-1]);
+}
+
+function drawMiniGrid(id, frame) {
+  if (!frame) return;
+  const canvas=document.getElementById(id); if (!canvas) return;
+  const ctx=canvas.getContext('2d'), W=canvas.width, H=canvas.height;
+  const cw=W/20, ch=H/20;
+  ctx.fillStyle='#010a14'; ctx.fillRect(0,0,W,H);
+  if (frame.grid) {
+    for (let r=0;r<20;r++) for (let c=0;c<20;c++) {
+      const d=frame.grid[r]?.[c]||0;
+      if (d>0) {
+        const hex=densityColor(d);
+        ctx.fillStyle=`rgba(${(hex>>16)&0xff},${(hex>>8)&0xff},${hex&0xff},${0.5+d*0.5})`;
+        ctx.fillRect(c*cw,r*ch,cw-0.5,ch-0.5);
+      }
+    }
+  }
+  if (frame.asvs) {
+    Object.entries(frame.asvs).forEach(([id2,a]) => {
+      ctx.fillStyle=ASV_CSS[id2]||'#fff';
+      ctx.beginPath(); ctx.arc((a.col+0.5)*cw,(a.row+0.5)*ch,cw*0.7,0,Math.PI*2); ctx.fill();
+    });
+  }
+}
+
+// ── TAB SWITCHING ─────────────────────────────────────────────
+function switchTab(tab) {
+  S.tab=tab;
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));
+  const liveRight=document.getElementById('live-right');
+  const replayRight=document.getElementById('replay-right');
+  const comparePanel=document.getElementById('compare-panel');
+  const mainArea=document.getElementById('main-area');
+  const bottomPanel=document.getElementById('bottom-panel');
+  if (tab==='live') {
+    mainArea.style.display='flex'; comparePanel.style.display='none'; bottomPanel.style.display='flex';
+    if (liveRight) liveRight.style.display='flex';
+    if (replayRight) replayRight.style.display='none';
+    setTimeout(onResize, 50);
+  } else if (tab==='replay') {
+    mainArea.style.display='flex'; comparePanel.style.display='none'; bottomPanel.style.display='flex';
+    if (liveRight) liveRight.style.display='none';
+    if (replayRight) replayRight.style.display='flex';
+    setTimeout(onResize, 50);
+  } else if (tab==='compare') {
+    mainArea.style.display='none'; comparePanel.style.display='flex'; bottomPanel.style.display='none';
+  }
+}
+
+// ── DEMO MODE ─────────────────────────────────────────────────
+function runDemo() {
+  switchTab('replay');
+  send({cmd:'get_replay',mode:'trained'});
+  const check=setInterval(()=>{
+    if (S.replayFrames.length>0) { clearInterval(check); S.replaySpeed=1.5; replayPlay(); }
+  },300);
+  setTimeout(()=>clearInterval(check),8000);
+}
+
+// ── INIT ──────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  // Loading animation — fast (finishes in ~750ms)
+  let pct=0;
+  const bar=document.getElementById('loading-bar');
+  const status=document.getElementById('loading-status');
+  const msgs=['INITIALIZING 3D ENGINE...','LOADING ENVIRONMENT...','CONNECTING TO MISSION CONTROL...','READY'];
+  const interval=setInterval(()=>{
+    pct+=4; if (bar) bar.style.width=pct+'%';
+    if (status) status.textContent=msgs[Math.min(3,Math.floor(pct/25))];
+    if (pct>=100) {
+      clearInterval(interval);
+      setTimeout(()=>{
+        const ls=document.getElementById('loading-screen');
+        if (ls) { ls.classList.add('fade-out'); setTimeout(()=>{ ls.style.display='none'; }, 600); }
+      },200);
+    }
+  },30);
+
+  // Tab buttons
+  document.querySelectorAll('.nav-tab').forEach(t=>t.addEventListener('click',()=>switchTab(t.dataset.tab)));
+
+  // Control buttons
+  document.getElementById('btn-start').addEventListener('click',()=>{ S.chaosCount=0; S.prevBio=null; S.prevNets=null; S.prevCleaned=null; S.prevReward=null; S.rewardHist=[]; S.bioHist=[]; S.netHist=[]; document.getElementById('event-feed').innerHTML=''; send({cmd:'start'}); });
+  document.getElementById('btn-stop').addEventListener('click',()=>send({cmd:'stop'}));
+  document.getElementById('btn-reset').addEventListener('click',()=>{ S.chaosCount=0; S.rewardHist=[]; S.bioHist=[]; S.netHist=[]; document.getElementById('event-feed').innerHTML=''; send({cmd:'reset'}); });
+  document.getElementById('btn-demo').addEventListener('click',runDemo);
+
+  // Replay controls
+  document.getElementById('btn-replay-play').addEventListener('click',()=>S.replayPlaying?replayPause():replayPlay());
+  document.getElementById('btn-replay-reset').addEventListener('click',()=>{ replayPause(); applyReplayFrame(0); });
+  document.getElementById('btn-replay-back').addEventListener('click',()=>{ replayPause(); applyReplayFrame(S.replayIdx-5); });
+  document.getElementById('btn-replay-fwd').addEventListener('click',()=>{ replayPause(); applyReplayFrame(S.replayIdx+5); });
+  document.getElementById('timeline-slider').addEventListener('input',e=>{ replayPause(); applyReplayFrame(parseInt(e.target.value)); });
+  document.getElementById('btn-load-trained').addEventListener('click',()=>{ send({cmd:'get_replay',mode:'trained'}); document.getElementById('event-feed').innerHTML=''; });
+  document.getElementById('btn-load-baseline').addEventListener('click',()=>{ send({cmd:'get_replay',mode:'baseline'}); document.getElementById('event-feed').innerHTML=''; });
+  document.querySelectorAll('.speed-btn').forEach(b=>b.addEventListener('click',()=>{ document.querySelectorAll('.speed-btn').forEach(x=>x.classList.remove('active')); b.classList.add('active'); S.replaySpeed=parseFloat(b.dataset.speed); if (S.replayPlaying){replayPause();replayPlay();} }));
+
+  // Compare
+  document.getElementById('btn-load-compare').addEventListener('click',loadCompareData);
+
+  // Init charts immediately (they don't need DOM dimensions)
+  try { initCharts(); } catch(e) { console.error("initCharts failed:", e); }
+  try { initCompareCharts(); } catch(e) { console.error("initCompareCharts failed:", e); }
+  try { connectWS(); } catch(e) { console.error("connectWS failed:", e); }
+
+  // Init Three.js — use requestAnimationFrame to ensure DOM layout is complete
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      try { initThree(); } catch(e) { console.error("initThree failed:", e); }
+    });
+  });
+
+  // Resize listener already added in initThree
+});
+</script>
+</body>
+</html>
