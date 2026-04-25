@@ -1,0 +1,79 @@
+name: oceanus
+version: "1.0.0"
+description: >
+  Multi-layer ghost-gear recovery and treaty negotiation arena.
+  4 ASV drones coordinate on a 20x20 ocean grid under partial observability
+  while 2 policy agents negotiate a tagging mandate via stakeholder emails.
+  An adversary curriculum agent injects storms, schema drift, and policy
+  invalidations to force adaptive behavior.
+
+themes:
+  - multi-agent
+  - long-horizon
+  - world-modeling
+  - self-improvement
+
+agents:
+  - id: ASV-1
+    type: asv
+    observation: sonar_3x3 + comms_inbox + position + battery
+    actions: [move, clean, broadcast, scan]
+  - id: ASV-2
+    type: asv
+    observation: sonar_3x3 + comms_inbox + position + battery
+    actions: [move, clean, broadcast, scan]
+  - id: ASV-3
+    type: asv
+    observation: sonar_3x3 + comms_inbox + position + battery
+    actions: [move, clean, broadcast, scan]
+  - id: ASV-4
+    type: asv
+    observation: sonar_3x3 + comms_inbox + position + battery
+    actions: [move, clean, broadcast, scan]
+  - id: Port_Authority
+    type: policy
+    observation: inbox + treaty_status + spawn_rate + biodiversity
+    actions: [reply_email, propose_treaty, accept_treaty, reject_treaty]
+  - id: Fleet_Manager
+    type: policy
+    observation: inbox + treaty_status + spawn_rate + biodiversity
+    actions: [reply_email, propose_treaty, accept_treaty, reject_treaty]
+
+reward:
+  type: ctde
+  formula: "alpha * sum(R_asv) + beta * sum(R_policy) + gamma * R_global"
+  components:
+    R_asv:
+      clean_net: +5.0
+      broadcast: +0.5
+      move: -0.1
+      invalid_json: -1.0
+    R_policy:
+      treaty_advance: +10.0
+      email_reply: +2.0
+      ignored_email: -5.0
+      invalid_json: -1.0
+    R_global:
+      biodiversity_gte_75: +100.0
+      biodiversity_gte_50: +40.0
+      biodiversity_gte_25: +10.0
+      collapse: -20.0
+      timing: episode_end_only
+
+environment:
+  grid_size: 20x20
+  max_steps: 120
+  partial_observability: true
+  sonar_radius: 1
+  adversary: true
+  schema_versioning: true
+
+entry_point: oceanus.models:OceanusEnv
+api:
+  reset: "env.reset() -> Dict[agent_id, {observation, prompt}]"
+  step: "env.step(actions: Dict[agent_id, str]) -> (obs, rewards, done, info)"
+
+links:
+  space: https://aakarsh2007-oceanus-ai.hf.space
+  notebook: https://colab.research.google.com/drive/1lJ_EKDEZptQorExyGS6jiMMX98Qw-uOs
+  repository: https://github.com/Aakarsh2007/Oceanus-

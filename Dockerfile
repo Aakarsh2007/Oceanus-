@@ -11,14 +11,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy source
+# Copy only what the server needs at runtime
 COPY oceanus/ ./oceanus/
 COPY dashboard/ ./dashboard/
-COPY train/ ./train/
+COPY data/ ./data/
 
-# Expose ports
-EXPOSE 8000  
-EXPOSE 8501  
+# HuggingFace Spaces runs on port 7860
+EXPOSE 7860
 
-# Default: run FastAPI backend
-CMD ["uvicorn", "dashboard.api:app", "--host", "0.0.0.0", "--port", "8000"]
+# Start FastAPI + WebSocket server
+CMD ["uvicorn", "dashboard.server:app", "--host", "0.0.0.0", "--port", "7860"]
