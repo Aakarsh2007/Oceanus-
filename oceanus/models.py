@@ -148,6 +148,7 @@ CURRENT STATE:
 - Position: Row {obs['position']['row']}, Col {obs['position']['col']} (Sector {obs['position']['sector']})
 - Battery: {obs['battery']}%
 - Biodiversity Index: {obs['biodiversity_index']}%
+- On Net: {"YES" if obs.get("on_net") else "NO"}
 - Step: {obs['step']}
 - {obs['wind_hint']}
 
@@ -347,7 +348,7 @@ class OceanusEnv:
 
                 elif intent == "broadcast":
                     msg = action.get("message", "").strip()
-                    if msg:
+                    if msg and len(msg) >= 10 and ("net" in msg.lower() or "sector" in msg.lower() or "at" in msg.lower()):
                         broadcast_useful = True
                         for other_id, other_asv in self.state.asvs.items():
                             if other_id != asv_id:
@@ -387,7 +388,7 @@ class OceanusEnv:
                         else self.state.fleet_manager_inbox
                     )
                     msg = inbox.pop_message(target)
-                    if msg:
+                    if msg and len(content) > 10:
                         email_replied = True
                         info["treaty_events"].append(f"{agent_id} replied to {target}")
 
