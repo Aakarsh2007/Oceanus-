@@ -3,9 +3,8 @@ Oceanus 3D Mission Control — FastAPI + WebSocket backend
 Serves the 3D HTML frontend and streams live environment state.
 
 Run: uvicorn dashboard.server:app --host 0.0.0.0 --port 8000 --reload
-Then open: http://localhost:8000
 """
-import sys, os, json, asyncio, time
+import sys, os, json, asyncio, re
 from typing import Dict, List, Optional, Set
 from pathlib import Path
 
@@ -15,15 +14,90 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 
 from oceanus.models import OceanusEnv
 from oceanus.adversary import AdversaryAgent
 from oceanus.runner import OceanusRunner, MockASVAgent, MockPolicyAgent
-from oceanus.physics import GRID_SIZE
 
-app = FastAPI(title="Oceanus Mission Control", version="2.0.0")
+app = FastAPI(title="Oceanus Mission Control", version="3.0.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"], allow_credentials=True)
+
+# Serve static JS files (Three.js, Chart.js, OrbitControls)
+_static_dir = Path(__file__).parent / "static"
+if _static_dir.exists():
+    app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
+
+# ── Groq LLM Agent ────────────────────────────────────────────────────────────
+class GroqLLMAgent:
+    """Live LLM agent powered by Groq API (llama3-8b-8192)."""
+
+    def __init__(self, agent_id: str, api_key: str):
+        self.agent_id = agent_id
+        self.api_key = api_key
+        self._client = None
+        self._step = 0
+        self._last_action = None
+        self._last_reasoning = None
+
+    def _get_client(self):
+        if self._client is None:
+            try:
+                from groq import Groq
+                self._client = Groq(api_key=self.api_key)
+            except ImportError:
+                return None
+        return self._client
+
+    def act(self, prompt: str, obs: Dict) -> str:
+        self._step += 1
+        client = self._get_client()
+        if client is None:
+            return self._fallback(obs)
+        try:
+            resp = client.chat.completions.create(
+                model="llama3-8b-8192",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=80,
+                temperature=0.3,
+                timeout=3.0,
+            )
+            raw = resp.choices[0].message.content.strip()
+            self._last_action = raw
+            # Extract reasoning (text before JSON)
+            match = re.search(r'\{[^{}]*\}', raw, re.DOTALL)
+            if match:
+                self._last_reasoning = raw[:match.start()].strip() or "Analyzing environment..."
+            return raw
+        except Exception as e:
+            return self._fallback(obs)
+
+    def _fallback(self, obs: Dict) -> str:
+        """Heuristic fallback if Groq unavailable."""
+        if self.agent_id.startswith("ASV"):
+            sonar = obs.get("sonar_3x3", [])
+            for dr in range(3):
+                for dc in range(3):
+                    if len(sonar) > dr and len(sonar[dr]) > dc:
+                        if sonar[dr][dc] == "net":
+                            if dr == 1 and dc == 1:
+                                return '{"intent": "clean"}'
+                            dirs = {(0,0):"stay",(0,1):"east",(0,-1):"west",(1,0):"south",(-1,0):"north"}
+                            d = dirs.get((dr-1, dc-1), "north")
+                            return json.dumps({"intent": "move", "direction": d})
+            dirs = ["north","south","east","west"]
+            return json.dumps({"intent": "move", "direction": dirs[self._step % 4]})
+        else:
+            status = obs.get("current_policy_status", "")
+            if status == "Treaty Proposed" and self.agent_id == "Fleet_Manager":
+                return '{"intent": "accept_treaty", "target": "Port_Authority", "content": "Agreed. Fleet will comply."}'
+            if status == "No Tagging Mandate" and self.agent_id == "Port_Authority":
+                return '{"intent": "propose_treaty", "target": "Fleet_Manager", "content": "50% subsidy on tracking tags."}'
+            inbox = obs.get("inbox", [])
+            if inbox:
+                sender = inbox[0].get("from", "Unknown")
+                return json.dumps({"intent": "reply_email", "target": sender, "content": "We are addressing your concerns immediately."})
+            return '{"intent": "reply_email", "target": "General_Inbox", "content": "Monitoring situation."}'
+
 
 # ── Global simulation state ────────────────────────────────────────────────────
 class SimState:
@@ -40,12 +114,29 @@ class SimState:
         self.net_history: List[int] = []
         self.event_log: List[Dict] = []
         self.episode_count: int = 0
-        self.cfg = {"seed": 42, "max_steps": 120, "chaos_interval": 25, "chaos_enabled": True, "step_delay": 0.08}
+        self.agent_mode: str = "mock"  # "mock" or "llm"
+        self.groq_key: str = ""
+        self.agent_thoughts: Dict[str, Dict] = {}  # last action + reasoning per agent
+        self.cfg = {
+            "seed": 42, "max_steps": 120, "chaos_interval": 25,
+            "chaos_enabled": True, "step_delay": 0.08, "difficulty": "medium"
+        }
 
-    def reset(self, seed=42, max_steps=120, chaos_interval=25):
+    def reset(self, seed=42, max_steps=120, chaos_interval=25, agent_mode="mock", groq_key=""):
         self.env = OceanusEnv(seed=seed, max_steps=max_steps)
         self.adversary = AdversaryAgent(inject_interval=chaos_interval, seed=seed)
-        self.runner = OceanusRunner(self.env, self.adversary, use_mock=True, verbose=False)
+        self.agent_mode = agent_mode
+        self.groq_key = groq_key
+
+        if agent_mode == "llm" and groq_key:
+            agents = {
+                aid: GroqLLMAgent(aid, groq_key)
+                for aid in ["ASV-1", "ASV-2", "ASV-3", "ASV-4", "Port_Authority", "Fleet_Manager"]
+            }
+            self.runner = OceanusRunner(self.env, self.adversary, agents=agents, verbose=False)
+        else:
+            self.runner = OceanusRunner(self.env, self.adversary, use_mock=True, verbose=False)
+
         self.obs_all = self.env.reset()
         self.running = False
         self.done = False
@@ -54,10 +145,10 @@ class SimState:
         self.bio_history = []
         self.net_history = []
         self.event_log = []
+        self.agent_thoughts = {}
         self.episode_count += 1
 
     def get_frame(self) -> Dict:
-        """Serialize current state for WebSocket broadcast."""
         if not self.env or not self.env.state:
             return {}
         s = self.env.state
@@ -67,14 +158,15 @@ class SimState:
             "max_steps": s.max_steps,
             "grid": s.grid.tolist(),
             "asvs": {
-                aid: {"row": a.row, "col": a.col, "battery": a.battery,
-                      "nets_cleaned": a.nets_cleaned,
-                      "on_net": bool(s.grid[a.row, a.col] > 0),
-                      "sector": s.get_sector(a.row, a.col)}
+                aid: {
+                    "row": a.row, "col": a.col, "battery": a.battery,
+                    "nets_cleaned": a.nets_cleaned,
+                    "on_net": bool(s.grid[a.row, a.col] > 0),
+                    "sector": s.get_sector(a.row, a.col),
+                }
                 for aid, a in s.asvs.items()
             },
-            "ghost_nets": [{"row": n.row, "col": n.col, "density": n.density}
-                           for n in s.ghost_nets],
+            "ghost_nets": [{"row": n.row, "col": n.col, "density": n.density} for n in s.ghost_nets],
             "biodiversity": round(s.biodiversity_index, 2),
             "active_nets": len(s.ghost_nets),
             "total_cleaned": s.total_cleaned,
@@ -90,6 +182,8 @@ class SimState:
             "done": self.done,
             "episode": self.episode_count,
             "schema_version": s.schema_version,
+            "agent_mode": self.agent_mode,
+            "agent_thoughts": self.agent_thoughts,
         }
 
 sim = SimState()
@@ -123,14 +217,34 @@ manager = ConnectionManager()
 async def simulation_loop():
     while True:
         if sim.running and not sim.done and sim.obs_all and sim.runner:
-            # Collect actions
             actions = {}
             for agent_id, agent in sim.runner.agents.items():
                 if agent_id in sim.obs_all:
                     ao = sim.obs_all[agent_id]
-                    actions[agent_id] = agent.act(ao["prompt"], ao["observation"])
+                    raw = agent.act(ao["prompt"], ao["observation"])
+                    actions[agent_id] = raw
+                    # Capture thought bubble for LLM agents
+                    if isinstance(agent, GroqLLMAgent):
+                        import re as _re
+                        match = _re.search(r'\{[^{}]*\}', raw, _re.DOTALL)
+                        action_json = match.group() if match else raw
+                        reasoning = raw[:match.start()].strip() if match else "Processing..."
+                        sim.agent_thoughts[agent_id] = {
+                            "action": action_json,
+                            "reasoning": reasoning or "Analyzing sonar data...",
+                            "is_llm": True,
+                        }
+                    else:
+                        # Parse mock agent action for display
+                        import re as _re
+                        match = _re.search(r'"intent"\s*:\s*"([^"]+)"', raw)
+                        intent = match.group(1) if match else "scan"
+                        sim.agent_thoughts[agent_id] = {
+                            "action": intent.upper(),
+                            "reasoning": "",
+                            "is_llm": False,
+                        }
 
-            # Step
             obs_all, rewards, done, info = sim.env.step(actions)
             sim.obs_all = obs_all
             sim.done = done
@@ -140,7 +254,6 @@ async def simulation_loop():
             sim.bio_history.append(round(info["biodiversity"], 1))
             sim.net_history.append(info["active_nets"])
 
-            # Build events
             events = []
             for c in info.get("cleaned", []):
                 events.append({"type": "clean", "msg": f"CLEANED: {c}"})
@@ -161,7 +274,6 @@ async def simulation_loop():
                 summary = sim.env.get_episode_summary()
                 sim.event_log.append({"type": "done", "msg": f"EPISODE COMPLETE | Bio:{summary['biodiversity_final']:.1f}% | Cleaned:{summary['total_cleaned']} | Treaty:{summary['treaty_status']}"})
 
-            # Broadcast to all connected clients
             await manager.broadcast(sim.get_frame())
             await asyncio.sleep(sim.cfg["step_delay"])
         else:
@@ -175,7 +287,6 @@ async def startup():
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
-    # Send current state immediately on connect
     await websocket.send_text(json.dumps(sim.get_frame()))
     try:
         while True:
@@ -184,14 +295,23 @@ async def websocket_endpoint(websocket: WebSocket):
             cmd = msg.get("cmd")
 
             if cmd == "start":
-                seed = msg.get("seed", sim.cfg["seed"])
-                max_steps = msg.get("max_steps", sim.cfg["max_steps"])
-                chaos_interval = msg.get("chaos_interval", sim.cfg["chaos_interval"])
-                sim.cfg["chaos_enabled"] = msg.get("chaos_enabled", True)
+                difficulty = msg.get("difficulty", "medium")
+                chaos_map = {"easy": 40, "medium": 25, "hard": 12}
+                chaos_interval = chaos_map.get(difficulty, 25)
+                agent_mode = msg.get("agent_mode", "mock")
+                groq_key = msg.get("groq_key", "")
+                sim.cfg["chaos_enabled"] = True
                 sim.cfg["step_delay"] = msg.get("step_delay", 0.08)
-                sim.reset(seed=seed, max_steps=max_steps, chaos_interval=chaos_interval)
+                sim.cfg["difficulty"] = difficulty
+                sim.reset(
+                    seed=msg.get("seed", 42),
+                    max_steps=msg.get("max_steps", 120),
+                    chaos_interval=chaos_interval,
+                    agent_mode=agent_mode,
+                    groq_key=groq_key,
+                )
                 sim.running = True
-                await manager.broadcast({"type": "control", "status": "started"})
+                await manager.broadcast({"type": "control", "status": "started", "agent_mode": agent_mode})
 
             elif cmd == "stop":
                 sim.running = False
@@ -234,12 +354,11 @@ def api_replay(mode: str):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "environment": "Oceanus-v2", "connected_clients": len(manager.active)}
+    return {"status": "ok", "environment": "Oceanus-v3", "connected_clients": len(manager.active), "agent_mode": sim.agent_mode}
 
-# ── Serve the 3D frontend ──────────────────────────────────────────────────────
 @app.get("/", response_class=HTMLResponse)
 async def serve_ui():
     html_path = Path(__file__).parent / "index.html"
     if html_path.exists():
         return HTMLResponse(html_path.read_text(encoding="utf-8"))
-    return HTMLResponse("<h1>index.html not found. Run build.</h1>")
+    return HTMLResponse("<h1>index.html not found.</h1>")
