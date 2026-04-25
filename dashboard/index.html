@@ -99,6 +99,78 @@ html,body{width:100%;height:100%;overflow:hidden;
 .btn-stop:hover{background:rgba(255,77,79,0.35);}
 .btn-reset{background:var(--glass);color:rgba(255,255,255,0.6);border:1px solid var(--border);}
 .btn-reset:hover{border-color:var(--warning);color:var(--warning);}
+.btn-help{background:rgba(0,194,255,0.12);color:var(--secondary);border:1px solid rgba(0,194,255,0.4);}
+.btn-help:hover{background:rgba(0,194,255,0.22);box-shadow:0 0 12px rgba(0,194,255,0.3);}
+
+/* ── HELP MODAL ── */
+#help-modal{
+  position:fixed;inset:0;z-index:99999;
+  display:none;align-items:center;justify-content:center;
+  background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);
+}
+#help-modal.open{display:flex;}
+#help-box{
+  width:min(820px,95vw);max-height:88vh;overflow-y:auto;
+  background:linear-gradient(135deg,#061a14,#040d1a);
+  border:1px solid rgba(0,194,255,0.3);border-radius:16px;
+  padding:32px 36px;position:relative;
+  box-shadow:0 0 60px rgba(0,194,255,0.15),0 24px 80px rgba(0,0,0,0.6);
+}
+#help-box::-webkit-scrollbar{width:4px;}
+#help-box::-webkit-scrollbar-thumb{background:rgba(0,194,255,0.3);border-radius:2px;}
+.help-close{
+  position:absolute;top:16px;right:20px;
+  background:none;border:none;color:rgba(255,255,255,0.4);
+  font-size:22px;cursor:pointer;line-height:1;
+  transition:color 0.15s;
+}
+.help-close:hover{color:var(--danger);}
+.help-title{
+  font-family:var(--font-display);font-size:22px;font-weight:900;
+  color:var(--primary);letter-spacing:4px;margin-bottom:4px;
+  text-shadow:0 0 20px rgba(0,255,156,0.4);
+}
+.help-sub{font-size:12px;color:rgba(0,194,255,0.7);letter-spacing:2px;margin-bottom:24px;}
+.help-section{margin-bottom:22px;}
+.help-section-title{
+  font-family:var(--font-display);font-size:10px;letter-spacing:2px;
+  color:var(--secondary);text-transform:uppercase;
+  border-bottom:1px solid rgba(0,194,255,0.15);padding-bottom:6px;margin-bottom:12px;
+}
+.help-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.help-card{
+  background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);
+  border-radius:8px;padding:12px 14px;
+}
+.help-card-title{font-size:11px;font-weight:600;color:rgba(255,255,255,0.85);margin-bottom:5px;}
+.help-card-body{font-size:10px;color:rgba(255,255,255,0.5);line-height:1.6;}
+.help-btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+.help-btn-tag{
+  font-family:var(--font-display);font-size:9px;letter-spacing:1px;
+  padding:4px 10px;border-radius:4px;border:1px solid;
+}
+.tag-green{color:var(--primary);border-color:rgba(0,255,156,0.3);background:rgba(0,255,156,0.08);}
+.tag-blue{color:var(--secondary);border-color:rgba(0,194,255,0.3);background:rgba(0,194,255,0.08);}
+.tag-purple{color:var(--accent);border-color:rgba(179,136,255,0.3);background:rgba(179,136,255,0.08);}
+.tag-red{color:var(--danger);border-color:rgba(255,77,79,0.3);background:rgba(255,77,79,0.08);}
+.tag-orange{color:var(--warning);border-color:rgba(255,176,32,0.3);background:rgba(255,176,32,0.08);}
+.help-step{display:flex;gap:12px;margin-bottom:10px;align-items:flex-start;}
+.help-step-num{
+  min-width:24px;height:24px;border-radius:50%;
+  background:rgba(0,194,255,0.15);border:1px solid rgba(0,194,255,0.3);
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-display);font-size:10px;color:var(--secondary);flex-shrink:0;
+}
+.help-step-text{font-size:11px;color:rgba(255,255,255,0.65);line-height:1.5;}
+.help-step-text b{color:rgba(255,255,255,0.9);}
+.help-divider{height:1px;background:rgba(255,255,255,0.06);margin:20px 0;}
+.help-reset-btn{
+  font-family:var(--font-display);font-size:10px;letter-spacing:1px;
+  padding:8px 18px;border-radius:6px;border:1px solid rgba(255,176,32,0.4);
+  background:rgba(255,176,32,0.1);color:var(--warning);cursor:pointer;
+  transition:all 0.15s;margin-top:4px;
+}
+.help-reset-btn:hover{background:rgba(255,176,32,0.2);box-shadow:0 0 12px rgba(255,176,32,0.3);}
 .conn-dot{
   width:8px;height:8px;border-radius:50%;background:var(--danger);
   box-shadow:0 0 8px var(--danger);transition:all 0.3s;
@@ -491,6 +563,7 @@ html,body{width:100%;height:100%;overflow:hidden;
       <button class="btn btn-start" id="btn-start">▶ START</button>
       <button class="btn btn-stop" id="btn-stop">■ STOP</button>
       <button class="btn btn-reset" id="btn-reset">↺</button>
+      <button class="btn btn-help" id="btn-help">? INFO</button>
       <div class="conn-dot" id="conn-dot"></div>
       <div class="conn-label" id="conn-label">Connecting...</div>
     </div>
@@ -1619,6 +1692,7 @@ window.addEventListener('load', () => {
   document.getElementById('btn-start').addEventListener('click',()=>{ S.chaosCount=0; S.prevBio=null; S.prevNets=null; S.prevCleaned=null; S.prevReward=null; S.rewardHist=[]; S.bioHist=[]; S.netHist=[]; document.getElementById('event-feed').innerHTML=''; send({cmd:'start'}); });
   document.getElementById('btn-stop').addEventListener('click',()=>send({cmd:'stop'}));
   document.getElementById('btn-reset').addEventListener('click',()=>{ S.chaosCount=0; S.rewardHist=[]; S.bioHist=[]; S.netHist=[]; document.getElementById('event-feed').innerHTML=''; send({cmd:'reset'}); });
+  document.getElementById('btn-help').addEventListener('click',()=>document.getElementById('help-modal').classList.add('open'));
   document.getElementById('btn-demo').addEventListener('click',runDemo);
 
   // Replay controls
@@ -1649,5 +1723,221 @@ window.addEventListener('load', () => {
   // Resize listener already added in initThree
 });
 </script>
+
+<!-- ── HELP / INFO MODAL ─────────────────────────────────────────────────── -->
+<div id="help-modal">
+  <div id="help-box">
+    <button class="help-close" id="help-close-btn" title="Close">✕</button>
+    <div class="help-title">OCEANUS</div>
+    <div class="help-sub">MULTI-AGENT OCEAN RECOVERY · MISSION CONTROL GUIDE</div>
+
+    <!-- WHAT IS THIS -->
+    <div class="help-section">
+      <div class="help-section-title">🌊 What is Oceanus?</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.6);line-height:1.7;margin-bottom:10px;">
+        Oceanus is a <b style="color:rgba(255,255,255,0.9)">multi-agent RL environment</b> where AI agents learn to recover ghost fishing nets from the ocean.
+        640,000 tonnes of ghost gear is lost annually — killing marine life for decades. This dashboard shows AI agents solving that problem in real-time.<br><br>
+        There are <b style="color:var(--secondary)">6 AI agents</b> running simultaneously: 4 ASV drones physically cleaning nets on the ocean grid,
+        and 2 policy agents negotiating a treaty to slow net spawning at the source.
+        A chaos adversary injects storms, equipment failures, and policy crises to test the agents.
+      </div>
+    </div>
+
+    <div class="help-divider"></div>
+
+    <!-- QUICK START -->
+    <div class="help-section">
+      <div class="help-section-title">🚀 Quick Start — 3 Steps</div>
+      <div class="help-step">
+        <div class="help-step-num">1</div>
+        <div class="help-step-text">Click <b>🚀 DEMO</b> — auto-loads the trained agent replay and plays it. Best way to see what the system does. No setup needed.</div>
+      </div>
+      <div class="help-step">
+        <div class="help-step-num">2</div>
+        <div class="help-step-text">Click <b>▶ START</b> — runs a live simulation with mock agents in real-time. Watch the 3D grid update every 80ms as agents act.</div>
+      </div>
+      <div class="help-step">
+        <div class="help-step-num">3</div>
+        <div class="help-step-text">Switch to <b>COMPARE</b> tab → click <b>Load Comparison Data</b> to see baseline vs trained agent side-by-side with reward charts.</div>
+      </div>
+    </div>
+
+    <div class="help-divider"></div>
+
+    <!-- BUTTONS -->
+    <div class="help-section">
+      <div class="help-section-title">🎮 Button Reference</div>
+      <div class="help-grid">
+        <div class="help-card">
+          <div class="help-card-title">🚀 DEMO</div>
+          <div class="help-card-body">Auto-switches to REPLAY tab and plays the pre-recorded trained agent episode. Shows the best learned behavior — 13 nets cleaned, treaty signed.</div>
+        </div>
+        <div class="help-card">
+          <div class="help-card-title">▶ START</div>
+          <div class="help-card-body">Starts a fresh live simulation. Mock heuristic agents run in real-time. The 3D grid, KPIs, and event feed all update live via WebSocket.</div>
+        </div>
+        <div class="help-card">
+          <div class="help-card-title">■ STOP</div>
+          <div class="help-card-body">Pauses the running simulation. The current state is preserved — click START again to resume from a new episode.</div>
+        </div>
+        <div class="help-card">
+          <div class="help-card-title">↺ RESET</div>
+          <div class="help-card-body">Resets the simulation to a fresh state. Clears all charts, event log, and reward history. Starts a new episode from step 0.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="help-divider"></div>
+
+    <!-- TABS -->
+    <div class="help-section">
+      <div class="help-section-title">📑 The Three Modes</div>
+      <div class="help-grid">
+        <div class="help-card">
+          <div class="help-card-title">LIVE Mode</div>
+          <div class="help-card-body">Real-time simulation running on the server. 6 agents act every 80ms. Watch the 3D ocean grid, agent intelligence panel, policy negotiation, and live event feed update in real-time.</div>
+        </div>
+        <div class="help-card">
+          <div class="help-card-title">REPLAY Mode</div>
+          <div class="help-card-body">Load pre-recorded episodes. Click <b>✅ Load Trained</b> or <b>❌ Load Baseline</b>. Use transport controls (⏮⏪▶⏩) to scrub through. Timeline markers show key events.</div>
+        </div>
+        <div class="help-card">
+          <div class="help-card-title">COMPARE Mode</div>
+          <div class="help-card-body">Side-by-side analysis of baseline vs trained agent. Shows reward curves, biodiversity charts, and final grid state. Click <b>Load Comparison Data</b> to populate.</div>
+        </div>
+        <div class="help-card">
+          <div class="help-card-title">Speed Controls (Replay)</div>
+          <div class="help-card-body">0.5× · 1× · 2× · 4× playback speed. Click any speed button while replay is playing to change pace instantly.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="help-divider"></div>
+
+    <!-- 3D SCENE -->
+    <div class="help-section">
+      <div class="help-section-title">🗺️ Reading the 3D Ocean Grid</div>
+      <div class="help-grid">
+        <div class="help-card">
+          <div class="help-card-title">Grid Cells (20×20)</div>
+          <div class="help-card-body">Each cell represents an ocean sector. Color = ghost net density:<br>
+            <span style="color:#001a4d">■</span> Dark blue = clear water &nbsp;
+            <span style="color:#00c2ff">■</span> Cyan = low density<br>
+            <span style="color:#ffb020">■</span> Orange = medium &nbsp;
+            <span style="color:#ff4d4f">■</span> Red = high density
+          </div>
+        </div>
+        <div class="help-card">
+          <div class="help-card-title">ASV Drones (4 agents)</div>
+          <div class="help-card-body">
+            <span style="color:#00c2ff">●</span> ASV-1 &nbsp;
+            <span style="color:#00ff9c">●</span> ASV-2 &nbsp;
+            <span style="color:#ffb020">●</span> ASV-3 &nbsp;
+            <span style="color:#b388ff">●</span> ASV-4<br>
+            Drones smoothly lerp to new positions each step. Glowing rings pulse when active. Particle bursts appear when a net is cleaned.
+          </div>
+        </div>
+        <div class="help-card">
+          <div class="help-card-title">Sectors (A1–D4)</div>
+          <div class="help-card-body">The grid is divided into 16 named sectors (A1, A2... D4). Agents broadcast their sector position to coordinate. Labels are visible as floating sprites.</div>
+        </div>
+        <div class="help-card">
+          <div class="help-card-title">Camera Controls</div>
+          <div class="help-card-body"><b>Drag</b> to rotate · <b>Scroll</b> to zoom · <b>Auto-rotates</b> when idle for 6 seconds. The camera slowly orbits the scene to show all angles.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="help-divider"></div>
+
+    <!-- KPIs -->
+    <div class="help-section">
+      <div class="help-section-title">📊 KPI Dashboard</div>
+      <div class="help-grid">
+        <div class="help-card">
+          <div class="help-card-title">🌱 Biodiversity Index (big card)</div>
+          <div class="help-card-body">The primary metric. Starts at 100%. Drops as ghost nets accumulate (−0.3% per net). Recovers as nets are cleaned (+0.1% per clean). Target: ≥75% for full ecosystem recovery bonus (+100 reward).</div>
+        </div>
+        <div class="help-card">
+          <div class="help-card-title">🕸 Active Nets / ✅ Cleaned</div>
+          <div class="help-card-body">Active = ghost nets currently drifting on the grid. Cleaned = total removed this episode. Nets spawn every 5 steps (High rate) or every 15 steps (Low rate, after treaty).</div>
+        </div>
+        <div class="help-card">
+          <div class="help-card-title">📜 Treaty Status</div>
+          <div class="help-card-body">Shows the current policy negotiation state: <b>No Mandate</b> → <b>Proposed</b> → <b>Active</b>. When Active, net spawn rate drops from High to Low — directly helping ASV agents.</div>
+        </div>
+        <div class="help-card">
+          <div class="help-card-title">💰 Reward / ⚡ Chaos</div>
+          <div class="help-card-body">Reward = cumulative RL score this episode. Chaos = number of adversary events fired (storms, trawlers, schema drift, equipment failures).</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="help-divider"></div>
+
+    <!-- AGENT PANEL -->
+    <div class="help-section">
+      <div class="help-section-title">🤖 Agent Intelligence Panel</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.6);line-height:1.7;margin-bottom:10px;">
+        Each ASV card shows: <b style="color:rgba(255,255,255,0.85)">battery level</b> (depletes by 1 per move, red when &lt;25%),
+        <b style="color:rgba(255,255,255,0.85)">last action</b> (MOVE/CLEAN/BROADCAST/SCAN),
+        <b style="color:rgba(255,255,255,0.85)">reasoning text</b>, current sector, position, and nets cleaned.<br><br>
+        The <b style="color:var(--secondary)">Coordination Score</b> bar rises when agents broadcast positions to each other (+15% per broadcast) and clean nets (+20% per clean). High coordination = agents working as a team.<br><br>
+        The <b style="color:var(--accent)">Policy Negotiation</b> panel shows the treaty progress bar and timeline. When Port Authority proposes a treaty and Fleet Manager accepts, the spawn rate drops immediately.
+      </div>
+    </div>
+
+    <div class="help-divider"></div>
+
+    <!-- TRAINING -->
+    <div class="help-section">
+      <div class="help-section-title">🧠 The AI Training Behind This</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.6);line-height:1.7;margin-bottom:10px;">
+        The agents shown in DEMO mode were trained using <b style="color:rgba(255,255,255,0.85)">GRPO (Group Relative Policy Optimization)</b> —
+        the same algorithm behind DeepSeek-R1. Model: Qwen2-0.5B-Instruct with 4-bit LoRA (2.1M trainable parameters), trained for 600 steps on Google Colab T4.<br><br>
+        Before training: model outputs random text → reward <b style="color:var(--danger)">−1.0</b> per step.<br>
+        After training: model outputs <code style="background:rgba(0,255,156,0.1);padding:1px 5px;border-radius:3px;color:var(--primary)">{"intent": "clean"}</code> when a net is visible → reward <b style="color:var(--primary)">+8.0</b> per step.<br><br>
+        Verifiable improvement: <b style="color:var(--primary)">+9.0 reward points per step</b>.
+      </div>
+      <div class="help-btn-row">
+        <a href="https://colab.research.google.com/drive/1lJ_EKDEZptQorExyGS6jiMMX98Qw-uOs" target="_blank" class="help-btn-tag tag-orange" style="text-decoration:none">📓 Training Notebook</a>
+        <a href="https://github.com/Aakarsh2007/Oceanus-" target="_blank" class="help-btn-tag tag-blue" style="text-decoration:none">💻 GitHub Repo</a>
+        <span class="help-btn-tag tag-green">🌱 OpenEnv Compatible</span>
+        <span class="help-btn-tag tag-purple">🤖 GRPO · Qwen2-0.5B · LoRA</span>
+      </div>
+    </div>
+
+    <div class="help-divider"></div>
+
+    <!-- RESET -->
+    <div class="help-section">
+      <div class="help-section-title">⚙️ Controls</div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-bottom:10px;">Need a fresh start? Reset the simulation below.</div>
+      <button class="help-reset-btn" id="help-reset-btn">↺ Reset Simulation</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// Help modal open/close
+document.getElementById('help-close-btn').addEventListener('click', () => {
+  document.getElementById('help-modal').classList.remove('open');
+});
+document.getElementById('help-modal').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('help-modal'))
+    document.getElementById('help-modal').classList.remove('open');
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') document.getElementById('help-modal').classList.remove('open');
+});
+document.getElementById('help-reset-btn').addEventListener('click', () => {
+  S.chaosCount=0; S.rewardHist=[]; S.bioHist=[]; S.netHist=[];
+  document.getElementById('event-feed').innerHTML='';
+  send({cmd:'reset'});
+  document.getElementById('help-modal').classList.remove('open');
+});
+</script>
+
 </body>
 </html>
