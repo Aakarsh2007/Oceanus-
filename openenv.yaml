@@ -63,6 +63,17 @@ reward:
       collapse: -20.0
       timing: episode_end_only
 
+rubrics:
+  - name: "ASV Cleaning Efficiency"
+    description: "Evaluates if ASV agents effectively coordinate to clean ghost nets without gaming the reward system."
+    components: ["R_asv.clean_net", "R_asv.broadcast"]
+  - name: "Policy Negotiation & Diplomacy"
+    description: "Evaluates if policy agents manage stakeholder communications and successfully negotiate a tagging mandate."
+    components: ["R_policy.treaty_advance", "R_policy.email_reply"]
+  - name: "Long-Term Ecosystem Restoration"
+    description: "Global outcome based on the resulting biodiversity index."
+    components: ["R_global.biodiversity_gte_75", "R_global.biodiversity_gte_50"]
+
 environment:
   grid_size: 20x20
   max_steps: 120

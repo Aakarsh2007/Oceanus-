@@ -43,8 +43,15 @@ class GroqLLMAgent:
         if self._client is None:
             try:
                 from groq import Groq
+                if not self.api_key:
+                    sim.warnings.append("LLM failed: No Groq API Key provided. Falling back to mock agents.")
+                    return None
                 self._client = Groq(api_key=self.api_key)
             except ImportError:
+                sim.warnings.append("LLM failed: 'groq' package not installed. Falling back to mock agents.")
+                return None
+            except Exception as e:
+                sim.warnings.append(f"LLM failed: {e}. Falling back to mock agents.")
                 return None
         return self._client
 
@@ -64,11 +71,16 @@ class GroqLLMAgent:
             raw = resp.choices[0].message.content.strip()
             self._last_action = raw
             # Extract reasoning (text before JSON)
+            import re
             match = re.search(r'\{[^{}]*\}', raw, re.DOTALL)
             if match:
                 self._last_reasoning = raw[:match.start()].strip() or "Analyzing environment..."
             return raw
         except Exception as e:
+            if "rate limit" in str(e).lower() or "429" in str(e):
+                sim.warnings.append("LLM failed: Rate limit exceeded. Falling back to mock agents.")
+            else:
+                sim.warnings.append(f"LLM failed: API Error. Falling back to mock agents.")
             return self._fallback(obs)
 
     def _fallback(self, obs: Dict) -> str:
@@ -117,6 +129,7 @@ class SimState:
         self.agent_mode: str = "mock"  # "mock" or "llm"
         self.groq_key: str = ""
         self.agent_thoughts: Dict[str, Dict] = {}  # last action + reasoning per agent
+        self.warnings: List[str] = []
         self.cfg = {
             "seed": 42, "max_steps": 120, "chaos_interval": 25,
             "chaos_enabled": True, "step_delay": 0.08, "difficulty": "medium"
@@ -216,6 +229,13 @@ manager = ConnectionManager()
 # ── Background simulation loop ─────────────────────────────────────────────────
 async def simulation_loop():
     while True:
+        if hasattr(sim, "warnings") and sim.warnings:
+            for w in sim.warnings:
+                if w not in [log.get("msg") for log in sim.event_log]:
+                    sim.event_log.append({"type": "chaos", "msg": w})
+                await manager.broadcast({"type": "notification", "msg": w, "level": "warning"})
+            sim.warnings.clear()
+
         if sim.running and not sim.done and sim.obs_all and sim.runner:
             actions = {}
             for agent_id, agent in sim.runner.agents.items():
@@ -300,6 +320,13 @@ async def websocket_endpoint(websocket: WebSocket):
                 chaos_interval = chaos_map.get(difficulty, 25)
                 agent_mode = msg.get("agent_mode", "mock")
                 groq_key = msg.get("groq_key", "")
+
+                # Fallback to HF Space Secret if available
+                env_key = os.getenv("GROQ_API_KEY")
+                if not groq_key and env_key:
+                    groq_key = env_key
+                    agent_mode = "llm"
+
                 sim.cfg["chaos_enabled"] = True
                 sim.cfg["step_delay"] = msg.get("step_delay", 0.08)
                 sim.cfg["difficulty"] = difficulty

@@ -602,11 +602,14 @@ html,body{width:100%;height:100%;overflow:hidden;
       <button class="btn btn-stop" id="btn-stop">■ STOP</button>
       <button class="btn btn-reset" id="btn-reset">↺</button>
       <button class="btn btn-help" id="btn-help">? INFO</button>
-      <span class="llm-badge" id="llm-badge">🤖 LLM</span>
+      <button class="btn" id="btn-llm-toggle" style="background:rgba(179,136,255,0.2);color:var(--accent);border:1px solid rgba(179,136,255,0.5);">🤖 LLM: ON</button>
       <div class="conn-dot" id="conn-dot"></div>
       <div class="conn-label" id="conn-label">Connecting...</div>
     </div>
   </nav>
+
+  <!-- TOAST CONTAINER -->
+  <div id="toast-container" style="position:fixed;top:60px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:10px;pointer-events:none;"></div>
 
   <!-- TREATY BANNER -->
   <div id="treaty-banner">
@@ -928,10 +931,26 @@ const S = {
   lastActions: {}, broadcastLines: [],
   asvTrails: { 'ASV-1': [], 'ASV-2': [], 'ASV-3': [], 'ASV-4': [] },
   difficulty: 'medium',
-  agentMode: 'mock',
+  agentMode: 'llm',
   groqKey: '',
   thoughtTimers: {},
 };
+
+// Toast notification
+function showToast(msg, type="warning") {
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+  const div = document.createElement('div');
+  const color = type === 'warning' ? '#ffb020' : '#ff4d4f';
+  div.style.cssText = `background:rgba(2,12,24,0.9);border:1px solid ${color};color:${color};padding:10px 16px;border-radius:6px;font-family:var(--font-main);font-size:11px;font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,0.5);opacity:0;transform:translateX(20px);transition:all 0.3s ease;`;
+  div.textContent = msg;
+  container.appendChild(div);
+  setTimeout(() => { div.style.opacity = '1'; div.style.transform = 'translateX(0)'; }, 10);
+  setTimeout(() => {
+    div.style.opacity = '0'; div.style.transform = 'translateX(20px)';
+    setTimeout(() => div.remove(), 300);
+  }, 4000);
+}
 
 // ── THREE.JS ──────────────────────────────────────────────────
 const T = { renderer:null, scene:null, camera:null, controls:null, cells:[], asvMeshes:{}, asvTargets:{}, particles:[], clock:null };
@@ -1489,7 +1508,9 @@ function scheduleReconnect() { setTimeout(connectWS, S.reconnectDelay); S.reconn
 function send(obj) { if (S.ws&&S.ws.readyState===WebSocket.OPEN) S.ws.send(JSON.stringify(obj)); }
 
 function handleMsg(msg) {
-  if (msg.type==='state') {
+  if (msg.type==='notification') {
+    showToast(msg.msg, msg.level||'warning');
+  } else if (msg.type==='state') {
     if (S.tab==='live') applyState(msg);
   } else if (msg.type==='replay_data') {
     handleReplayData(msg);
@@ -1674,10 +1695,10 @@ function loadCompareData() {
   S.trainedData=null; S.baselineData=null;
   let count=0;
   const orig=S.ws.onmessage;
-  S.ws.onmessage=(evt)=>{
+  S.ws.onmessage = (evt) => {
     try {
-      const msg=JSON.parse(evt.data);
-      if (msg.type==='replay_data') {
+      const msg = JSON.parse(evt.data);
+      if (msg.type === 'replay_data') {
         if (msg.data.mode==='trained') S.trainedData=msg.data;
         else S.baselineData=msg.data;
         count++;
@@ -2160,8 +2181,29 @@ document.getElementById('btn-disable-llm').addEventListener('click', () => {
   S.groqKey = '';
   document.getElementById('llm-status').textContent = 'Mode: Mock agents (heuristic)';
   document.getElementById('llm-status').style.color = 'rgba(255,255,255,0.35)';
-  document.getElementById('llm-badge').classList.remove('visible');
+  const llmToggle = document.getElementById('btn-llm-toggle');
+  if (llmToggle) { llmToggle.textContent = '🤖 LLM: OFF'; llmToggle.style.background = 'transparent'; llmToggle.style.borderColor = 'rgba(255,255,255,0.2)'; llmToggle.style.color = 'rgba(255,255,255,0.4)'; }
 });
+
+// Top bar LLM toggle
+const btnLlmToggle = document.getElementById('btn-llm-toggle');
+if (btnLlmToggle) {
+  btnLlmToggle.addEventListener('click', () => {
+    if (S.agentMode === 'llm') {
+      S.agentMode = 'mock';
+      btnLlmToggle.textContent = '🤖 LLM: OFF';
+      btnLlmToggle.style.background = 'transparent';
+      btnLlmToggle.style.borderColor = 'rgba(255,255,255,0.2)';
+      btnLlmToggle.style.color = 'rgba(255,255,255,0.4)';
+    } else {
+      S.agentMode = 'llm';
+      btnLlmToggle.textContent = '🤖 LLM: ON';
+      btnLlmToggle.style.background = 'rgba(179,136,255,0.2)';
+      btnLlmToggle.style.borderColor = 'rgba(179,136,255,0.5)';
+      btnLlmToggle.style.color = 'var(--accent)';
+    }
+  });
+}
 </script>
 
 </body>
