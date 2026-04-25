@@ -1,11 +1,14 @@
-name: oceanus
+name: oceanus-env
 version: "1.0.0"
 description: >
   Multi-layer ghost-gear recovery and treaty negotiation arena.
   4 ASV drones coordinate on a 20x20 ocean grid under partial observability
   while 2 policy agents negotiate a tagging mandate via stakeholder emails.
   An adversary curriculum agent injects storms, schema drift, and policy
-  invalidations to force adaptive behavior.
+  invalidations to force adaptive behavior. Cross-layer causality: a text
+  treaty directly reduces ghost net spawn rate in the physical simulation.
+
+entry_point: server.app:app
 
 themes:
   - multi-agent
@@ -67,11 +70,6 @@ environment:
   sonar_radius: 1
   adversary: true
   schema_versioning: true
-
-entry_point: oceanus.models:OceanusEnv
-api:
-  reset: "env.reset() -> Dict[agent_id, {observation, prompt}]"
-  step: "env.step(actions: Dict[agent_id, str]) -> (obs, rewards, done, info)"
 
 links:
   space: https://aakarsh2007-oceanus-ai.hf.space

@@ -33,7 +33,11 @@ def get_args():
 def build_training_samples(
     env: OceanusEnv, adversary: AdversaryAgent, n_rollouts: int = 10
 ) -> List[Dict]:
-    """Generate (prompt, agent_id) pairs for GRPO training."""
+    """
+    Generate (prompt, agent_id) pairs for GRPO training.
+    Runs live rollouts through the environment — training loop
+    connects directly to env.step(), not a static dataset.
+    """
     samples = []
 
     for rollout_idx in range(n_rollouts):
@@ -47,8 +51,13 @@ def build_training_samples(
                     "agent_id": agent_id,
                     "step": agent_obs["observation"].get("step", 0),
                     "rollout": rollout_idx,
+                    # Include live env state so reward_fn has context
+                    "biodiversity": agent_obs["observation"].get("biodiversity_index", 100.0),
+                    "on_net": agent_obs["observation"].get("on_net", False),
+                    "treaty_status": env.state.treaty_status if env.state else "No Tagging Mandate",
                 })
 
+            # Step with dummy actions to advance env state for next observation
             dummy_actions = {aid: '{"intent": "scan"}' for aid in obs_all}
             obs_all, rewards, done, info = env.step(dummy_actions)
 
