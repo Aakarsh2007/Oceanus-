@@ -23,7 +23,7 @@ from oceanus.runner import OceanusRunner, MockASVAgent, MockPolicyAgent
 from oceanus.physics import GRID_SIZE
 
 app = FastAPI(title="Oceanus Mission Control", version="2.0.0")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"], allow_credentials=True)
 
 # ── Global simulation state ────────────────────────────────────────────────────
 class SimState:
@@ -206,13 +206,14 @@ async def websocket_endpoint(websocket: WebSocket):
 
             elif cmd == "get_replay":
                 mode = msg.get("mode", "trained")
-                path = f"data/{mode}_episode.json"
+                base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                path = os.path.join(base_dir, "data", f"{mode}_episode.json")
                 if os.path.exists(path):
                     with open(path) as f:
                         replay = json.load(f)
                     await websocket.send_text(json.dumps({"type": "replay_data", "data": replay}))
                 else:
-                    await websocket.send_text(json.dumps({"type": "error", "msg": f"No replay data for mode '{mode}'. Run: python oceanus/demo_recorder.py"}))
+                    await websocket.send_text(json.dumps({"type": "error", "msg": f"No replay data for mode '{mode}'."}))
 
     except WebSocketDisconnect:
         manager.disconnect(websocket)
@@ -224,7 +225,8 @@ def api_state():
 
 @app.get("/api/replay/{mode}")
 def api_replay(mode: str):
-    path = f"data/{mode}_episode.json"
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    path = os.path.join(base_dir, "data", f"{mode}_episode.json")
     if os.path.exists(path):
         with open(path) as f:
             return json.load(f)

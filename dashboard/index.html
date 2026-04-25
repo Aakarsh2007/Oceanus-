@@ -789,8 +789,12 @@ html,body{width:100%;height:100%;overflow:hidden;
 // OCEANUS MISSION CONTROL — Complete JS
 // ═══════════════════════════════════════════════════════════════
 const host = location.hostname || 'localhost';
-const WS_PORT = location.port || 8000;
-const WS_URL = `ws://${host}:${WS_PORT}/ws`;
+// HuggingFace Spaces: HTTPS with no explicit port — ws path must be relative
+const WS_PROTO = location.protocol === 'https:' ? 'wss' : 'ws';
+// On HF Spaces, location.port is empty — use host directly (no port needed)
+const WS_URL = location.port
+  ? `${WS_PROTO}://${host}:${location.port}/ws`
+  : `${WS_PROTO}://${host}/ws`;
 const ASV_COLORS = { 'ASV-1': 0x00c2ff, 'ASV-2': 0x00ff9c, 'ASV-3': 0xffb020, 'ASV-4': 0xb388ff };
 const ASV_CSS   = { 'ASV-1': '#00c2ff', 'ASV-2': '#00ff9c', 'ASV-3': '#ffb020', 'ASV-4': '#b388ff' };
 
@@ -812,6 +816,8 @@ const T = { renderer:null, scene:null, camera:null, controls:null, cells:[], asv
 function initThree() {
   const wrap = document.getElementById('canvas-wrap');
   if (!wrap) { console.error('canvas-wrap not found'); return; }
+  if (typeof THREE === 'undefined') { console.error('THREE.js not loaded'); wrap.innerHTML += '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:rgba(0,255,156,0.6);font-family:monospace;font-size:12px;text-align:center">3D ENGINE<br>LOADING...</div>'; return; }
+  if (typeof THREE.OrbitControls === 'undefined') { console.warn('OrbitControls not loaded — continuing without orbit'); }
 
   // Remove any existing canvas
   const oldCanvas = document.getElementById('three-canvas');
@@ -840,18 +846,22 @@ function initThree() {
   T.camera.lookAt(9.5, 0, 9.5);
 
   // Controls
-  T.controls = new THREE.OrbitControls(T.camera, el);
-  T.controls.target.set(9.5, 0, 9.5);
-  T.controls.enableDamping = true;
-  T.controls.dampingFactor = 0.05;
-  T.controls.autoRotate = true;
-  T.controls.autoRotateSpeed = 0.3;
-  T.controls.minDistance = 8;
-  T.controls.maxDistance = 50;
-  T.controls.maxPolarAngle = Math.PI / 2.1;
-  let idleTimer;
-  T.controls.addEventListener('start', () => { T.controls.autoRotate = false; clearTimeout(idleTimer); });
-  T.controls.addEventListener('end', () => { idleTimer = setTimeout(() => T.controls.autoRotate = true, 6000); });
+  if (typeof THREE.OrbitControls !== 'undefined') {
+    T.controls = new THREE.OrbitControls(T.camera, el);
+    T.controls.target.set(9.5, 0, 9.5);
+    T.controls.enableDamping = true;
+    T.controls.dampingFactor = 0.05;
+    T.controls.autoRotate = true;
+    T.controls.autoRotateSpeed = 0.3;
+    T.controls.minDistance = 8;
+    T.controls.maxDistance = 50;
+    T.controls.maxPolarAngle = Math.PI / 2.1;
+    let idleTimer;
+    T.controls.addEventListener('start', () => { T.controls.autoRotate = false; clearTimeout(idleTimer); });
+    T.controls.addEventListener('end', () => { idleTimer = setTimeout(() => T.controls.autoRotate = true, 6000); });
+  } else {
+    T.controls = { update: () => {}, autoRotate: false };
+  }
 
   // Scene
   T.scene = new THREE.Scene();
@@ -1318,7 +1328,7 @@ function connectWS() {
   S.ws.onclose = () => { S.wsReady=false; dot.className='conn-dot'; lbl.textContent='Disconnected'; scheduleReconnect(); };
   S.ws.onerror = () => { S.wsReady=false; };
   S.ws.onmessage = (evt) => {
-    try { handleMsg(JSON.parse(evt.data)); } catch(e) { console.error("WS error:", e); alert("WS error: " + e.message); }
+    try { handleMsg(JSON.parse(evt.data)); } catch(e) { console.error("WS parse error:", e); }
   };
 }
 function scheduleReconnect() { setTimeout(connectWS, S.reconnectDelay); S.reconnectDelay=Math.min(S.reconnectDelay*1.5,5000); }
