@@ -75,6 +75,10 @@ The environment operates on **three simultaneous layers**:
 ```
 Untrained model outputs: *"I think I should navigate toward the detected anomaly..."* → reward: -1.0
 
+![Training Proof — Live Inference](https://raw.githubusercontent.com/Aakarsh2007/Oceanus-/main/notebooks/training-proof.png)
+
+*Screenshot from Colab Cell 13: trained model correctly outputs `{"intent": "clean"}` when net is visible in sonar. Untrained baseline reward: -1.0 → Trained reward: +8.0*
+
 ---
 
 ## 🚀 Quick Start
