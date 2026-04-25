@@ -61,7 +61,7 @@ def build_training_samples(
 def reward_fn(completions: List[str], prompts: List[str], **kwargs) -> List[float]:
     """
     GRPO reward function.
-    Evaluates each LLM completion against the Oceanus reward model.
+    Evaluates each LLM completion against the Oceanus programmatic verifier.
     """
     from oceanus.models import parse_asv_action, parse_policy_action
 
@@ -76,13 +76,22 @@ def reward_fn(completions: List[str], prompts: List[str], **kwargs) -> List[floa
             if valid and action:
                 intent = action.get("intent", "")
                 if intent == "clean":
-                    r = 3.0
-                elif intent == "broadcast" and action.get("message"):
-                    r = 1.0
-                elif intent == "move" and action.get("direction") in (
-                    "north", "south", "east", "west"
-                ):
-                    r = 0.2
+                    # Programmatic verifier: Can only clean if actually on a net
+                    if "- On Net: YES" in prompt:
+                        r = 3.0
+                    else:
+                        r = -1.0
+                elif intent == "broadcast":
+                    msg = action.get("message", "")
+                    if msg and len(msg) >= 10 and ("net" in msg.lower() or "sector" in msg.lower() or "at" in msg.lower()):
+                        r = 1.0
+                    else:
+                        r = -0.5
+                elif intent == "move":
+                    if action.get("direction") in ("north", "south", "east", "west"):
+                        r = -0.1
+                    else:
+                        r = -0.5
                 elif intent == "scan":
                     r = 0.1
                 else:
@@ -94,11 +103,23 @@ def reward_fn(completions: List[str], prompts: List[str], **kwargs) -> List[floa
             if valid and action:
                 intent = action.get("intent", "")
                 if intent == "accept_treaty":
-                    r = 8.0
-                elif intent == "propose_treaty" and action.get("content"):
-                    r = 4.0
-                elif intent == "reply_email" and action.get("content"):
-                    r = 2.0
+                    if "Treaty Proposed" in prompt:
+                        r = 8.0
+                    else:
+                        r = -2.0
+                elif intent == "propose_treaty":
+                    if "No Tagging Mandate" in prompt:
+                        r = 4.0
+                    else:
+                        r = -2.0
+                elif intent == "reply_email":
+                    target = action.get("target", "")
+                    content = action.get("content", "")
+                    # Require substantial reply to an email that is actually in the inbox
+                    if target and content and len(content) > 10 and f"FROM: {target}" in prompt:
+                        r = 2.0
+                    else:
+                        r = -1.0
                 else:
                     r = -0.5
             else:
