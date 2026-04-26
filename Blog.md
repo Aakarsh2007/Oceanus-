@@ -54,6 +54,29 @@ This environment is extremely hard to "game." An agent that blindly outputs `{"i
 
 ---
 
+## ⚙️ A Universal Text-to-Action RL Engine
+
+While Oceanus is themed around ocean recovery, underneath the UI lies a **completely domain-agnostic, universal Reinforcement Learning pipeline**. 
+
+This is not just a game; it is a **Text-to-Action Engine**. Because the agents use human language (JSON/text) instead of rigid action spaces, you can retrain this exact system to solve almost any problem by changing three specific things:
+
+### 1. Change the System Prompt (The Rules)
+If you wanted to build an algorithmic trader, you just change the prompt: 
+> *"You are an algorithmic trading AI. You MUST output valid JSON. Allowed intents: 'buy', 'sell', 'hold'."*
+
+### 2. Change the Environment Data (The Observation)
+Instead of sonar data, feed it different text: 
+* **Medical Triage AI:** `"Patient Symptoms: ['fever', 'cough']. Blood pressure: 140/90."`
+* **Cybersecurity AI:** `"Network Log: [Multiple failed SSH login attempts from IP 192.168.1.50]."`
+
+### 3. Change the Reward Functions (The Goal)
+The AI learns whatever you reward it for. If building a Smart Home Energy agent:
+> *If the observation says "Room is empty" and the AI outputs `"intent": "turn_off_lights"`, give it `+10` points. If it outputs `"turn_on_heater"`, give it `-5` points.*
+
+Because this pipeline uses an LLM, you do not need to build complex 3D physics simulators for every new problem. You just write Python code that generates text-based observations and assigns points. The GRPO algorithm automatically rewires the model's 8.8 million LoRA parameters to maximize those points, essentially acting as a factory that manufactures custom AI brains.
+
+---
+
 ## 🧠 Training Pipeline & Reward Structure
 
 We trained the agents using **GRPO (Group Relative Policy Optimization)**—the same algorithm powering DeepSeek-R1—leveraging the **Hugging Face TRL** library and **Unsloth** for rapid 4-bit LoRA fine-tuning.

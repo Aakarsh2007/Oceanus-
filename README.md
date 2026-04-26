@@ -1,3 +1,13 @@
+---
+title: Oceanus AI
+emoji: 🌊
+colorFrom: blue
+colorTo: green
+sdk: docker
+pinned: false
+app_port: 7860
+---
+
 # 🌊 Oceanus: Multi-Layer Ghost-Gear Recovery & Treaty Arena
 
 > *The first multi-modal RL arena where LLM policy negotiations directly control the physics of ocean restoration.*
@@ -204,6 +214,29 @@ Difficulty scales 1.0 → 3.0 over episode duration.
 Most RL environments train agents on fixed, isolated tasks. Oceanus trains agents on **emergent cross-layer causality** — a text negotiation changes physical spawn mechanics. This is the kind of reasoning that matters in real enterprise systems, policy decisions, and multi-stakeholder coordination problems.
 
 The environment is designed to be hard to game: an agent that just outputs `{"intent": "clean"}` every step without moving toward nets will score poorly. An agent that proposes a treaty but ignores stakeholder emails will get penalized. The reward structure requires genuinely intelligent behavior.
+
+---
+
+## ⚙️ A Universal Text-to-Action RL Engine
+
+While Oceanus is themed around ocean recovery, underneath the UI lies a **completely domain-agnostic, universal Reinforcement Learning pipeline**. 
+
+This is not just a game; it is a **Text-to-Action Engine** built on Unsloth + LoRA + GRPO (DeepSeek-R1's algorithm) + Qwen2-0.5B. Because the agents use human language (JSON/text) instead of rigid action spaces, you can retrain this exact system to solve almost any problem by changing three specific things:
+
+### 1. Change the System Prompt (The Rules)
+If you wanted to build an algorithmic trader, you just change the prompt: 
+> *"You are an algorithmic trading AI. You MUST output valid JSON. Allowed intents: 'buy', 'sell', 'hold'."*
+
+### 2. Change the Environment Data (The Observation)
+Instead of sonar data, feed it different text: 
+* **Medical Triage AI:** `"Patient Symptoms: ['fever', 'cough']. Blood pressure: 140/90."`
+* **Cybersecurity AI:** `"Network Log: [Multiple failed SSH login attempts from IP 192.168.1.50]."`
+
+### 3. Change the Reward Functions (The Goal)
+The AI learns whatever you reward it for. If building a Smart Home Energy agent:
+> *If the observation says "Room is empty" and the AI outputs `"intent": "turn_off_lights"`, give it `+10` points. If it outputs `"turn_on_heater"`, give it `-5` points.*
+
+Because this pipeline uses an LLM, you do not need to build complex 3D physics simulators for every new problem. You just write Python code that generates text-based observations and assigns points. The GRPO algorithm automatically rewires the model's 8.8 million LoRA parameters to maximize those points, essentially acting as a factory that manufactures custom AI brains.
 
 ---
 
