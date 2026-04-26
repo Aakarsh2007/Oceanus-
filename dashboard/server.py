@@ -141,7 +141,7 @@ class SimState:
         self.agent_mode = agent_mode
         self.groq_key = groq_key
 
-        if agent_mode == "llm" and groq_key:
+        if agent_mode == "llm":
             agents = {
                 aid: GroqLLMAgent(aid, groq_key)
                 for aid in ["ASV-1", "ASV-2", "ASV-3", "ASV-4", "Port_Authority", "Fleet_Manager"]

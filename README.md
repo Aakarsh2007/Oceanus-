@@ -13,12 +13,12 @@
 
 | Resource | Link |
 |----------|------|
-| 🤗 HuggingFace Space (Live Demo) | https://aakarsh2007-oceanus-ai.hf.space |
+| 🤗 HuggingFace Space (Live Demo) | https://huggingface.co/spaces/aakarsh2007/Oceanus-AI |
 | 📓 Colab Training Notebook | https://colab.research.google.com/drive/1lJ_EKDEZptQorExyGS6jiMMX98Qw-uOs |
 | 💻 GitHub Repository | https://github.com/Aakarsh2007/Oceanus- |
-| 🎥 Demo Video / Blog | https://youtube.com/YOUR_VIDEO_ID |
+| 📝 Blog Post | https://huggingface.co/spaces/aakarsh2007/Oceanus-AI/blob/main/Blog.md |
 
-> **Update the YouTube link before submission deadline.**
+> **Final Submission Links Updated**
 
 ---
 
